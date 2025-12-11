@@ -2887,13 +2887,14 @@
             
             <!-- Waiting for opponent -->
             <div id="onlineWaiting" style="display: none;">
-                <p style="color: var(--silver); margin-bottom: 15px;">Share this code with your opponent:</p>
-                <div id="roomCode" style="font-size: 2rem; font-weight: 700; letter-spacing: 0.2em; color: var(--gold); 
-                                          margin-bottom: 15px; padding: 15px; background: var(--slate); border-radius: 8px;
-                                          cursor: pointer;" onclick="copyRoomCode()">
-                    ----
+                <p style="color: var(--silver); margin-bottom: 15px;">Share this link with your opponent:</p>
+                <div id="roomLink" style="font-size: 0.9rem; color: var(--gold); 
+                                          margin-bottom: 10px; padding: 15px; background: var(--slate); border-radius: 8px;
+                                          cursor: pointer; word-break: break-all;" onclick="copyRoomLink()">
+                    ---
                 </div>
-                <p style="color: var(--silver); font-size: 0.85rem; margin-bottom: 20px;">Click to copy</p>
+                <p style="color: var(--silver); font-size: 0.85rem; margin-bottom: 5px;">Click to copy</p>
+                <p style="color: var(--silver); font-size: 0.75rem; margin-bottom: 20px;">Room code: <span id="roomCode">----</span></p>
                 <p style="color: var(--silver);">Waiting for opponent to join...</p>
                 <div class="waiting-spinner" style="margin: 20px auto; width: 30px; height: 30px; border: 3px solid var(--slate); 
                                                      border-top-color: var(--gold); border-radius: 50%; animation: spin 1s linear infinite;"></div>
@@ -7566,6 +7567,55 @@
         // Initialize on load - render board, menu accessible
         // User can access menu, tutorial, rules before starting a game
         initGame();
+        
+        // Check for room code in URL and auto-join
+        (function checkUrlForRoom() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
+            
+            if (roomCode) {
+                // Close welcome modal if open
+                closeWelcome();
+                
+                // Open online modal and auto-join
+                const modal = document.getElementById('onlineModal');
+                modal.classList.add('show');
+                showOnlineStatus('Connecting to server...');
+                
+                // Initialize peer, then auto-join
+                peer = new Peer();
+                
+                peer.on('open', () => {
+                    console.log('Connected to PeerJS, auto-joining room:', roomCode);
+                    
+                    isHost = false;
+                    localPlayer = null;
+                    
+                    showOnlineJoining();
+                    
+                    conn = peer.connect('inara-' + roomCode, { reliable: true });
+                    
+                    conn.on('open', () => {
+                        console.log('Connected to host!');
+                        setupConnectionHandlers();
+                        sendOnlineMessage({ type: 'requestGameState' });
+                    });
+                    
+                    conn.on('error', (err) => {
+                        console.error('Connection error:', err);
+                        showOnlineError('Could not connect to game.');
+                    });
+                });
+                
+                peer.on('error', (err) => {
+                    console.error('PeerJS error:', err);
+                    showOnlineError('Could not connect to server.');
+                });
+                
+                // Clear the URL parameter so refresh doesn't re-join
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        })();
 
         // === ONLINE MULTIPLAYER FUNCTIONS ===
         
@@ -7655,6 +7705,10 @@
             document.getElementById('onlineJoining').style.display = 'none';
             document.getElementById('onlineError').style.display = 'none';
             document.getElementById('roomCode').textContent = code;
+            
+            // Generate shareable link
+            const link = `${window.location.origin}${window.location.pathname}?room=${code}`;
+            document.getElementById('roomLink').textContent = link;
         }
         
         function showOnlineJoining() {
@@ -7678,6 +7732,16 @@
             const code = document.getElementById('roomCode').textContent;
             navigator.clipboard.writeText(code).then(() => {
                 const el = document.getElementById('roomCode');
+                const original = el.textContent;
+                el.textContent = 'Copied!';
+                setTimeout(() => el.textContent = original, 1000);
+            });
+        }
+        
+        function copyRoomLink() {
+            const link = document.getElementById('roomLink').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                const el = document.getElementById('roomLink');
                 const original = el.textContent;
                 el.textContent = 'Copied!';
                 setTimeout(() => el.textContent = original, 1000);
