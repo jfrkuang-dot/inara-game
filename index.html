@@ -340,6 +340,45 @@
             letter-spacing: 0.05em;
         }
 
+        .lives-display {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--pearl);
+            background: var(--obsidian);
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--slate);
+            display: none; /* Hidden by default for sudden death */
+        }
+
+        .lives-display.visible {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .breakthrough-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: var(--onyx);
+            border: 2px solid var(--gold);
+            border-radius: 12px;
+            padding: 20px 32px;
+            text-align: center;
+            color: var(--pearl);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            box-shadow: 0 0 30px rgba(201, 162, 39, 0.3);
+        }
+
+        .breakthrough-notification.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
         .player-name-row {
             display: flex;
             align-items: center;
@@ -458,7 +497,7 @@
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            opacity: 0;
+            opacity: 0.4;
             transition: opacity 0.2s ease;
             grid-column: 3;
         }
@@ -2187,6 +2226,7 @@
                     <input type="file" id="menuImportInput" accept=".json" style="display:none" onchange="importGameJSON(event)">
                     <button onclick="toggleRules(); closeMenu();">Rules</button>
                     <button onclick="openTutorial(); closeMenu();">Tutorial</button>
+                    <button onclick="showAbout(); closeMenu();">About</button>
                     <hr>
                     <button onclick="togglePause(); closeMenu();">Pause/Resume</button>
                     <button onclick="undoMove(); closeMenu();">Undo Move</button>
@@ -2230,6 +2270,7 @@
                 <div class="player-panel" id="lightPanel">
                     <div class="player-header">
                         <div class="player-name-row">
+                            <span class="lives-display" id="lightLives"><span style="color: #e74c3c;">♥</span> 1</span>
                             <span class="player-name" id="lightPlayerName">Light</span>
                             <div class="masks-container" id="lightMasksDisplay"></div>
                         </div>
@@ -2258,6 +2299,7 @@
                 <div class="player-panel active" id="darkPanel">
                     <div class="player-header">
                         <div class="player-name-row">
+                            <span class="lives-display" id="darkLives"><span style="color: #e74c3c;">♥</span> 1</span>
                             <span class="player-name" id="darkPlayerName">Dark</span>
                             <div class="masks-container" id="darkMasksDisplay"></div>
                         </div>
@@ -2465,12 +2507,6 @@
                 <p><strong>Shapes:</strong> Ω Moon, Χ Sand, Λ Peak</p>
                 <p><strong>Colors:</strong> White, Orange, Blue</p>
                 <p><strong>Mirror:</strong> ◇ (copies the resting glyph)</p>
-
-                <div class="rules-designer-note">
-                    <h4>A Note from the Designer</h4>
-                    <p>Please enjoy playing Inara and mastering its strategy.</p>
-                    <p>— James Kuang, 2025</p>
-                </div>
             </div>
         </div>
     </div>
@@ -2754,6 +2790,16 @@
         </div>
     </div>
 
+    <!-- About Modal -->
+    <div class="modal" id="aboutModal">
+        <div class="modal-content" style="max-width: 360px; text-align: center;">
+            <span class="close-modal" onclick="closeAbout()">&times;</span>
+            <h2 style="font-size: 2rem; margin-bottom: 25px; font-family: 'Philosopher', sans-serif;">About</h2>
+            <p style="color: var(--pearl); line-height: 1.7; margin-bottom: 20px;">I've been working on this game with support from friends and family since 2017. Most of it came together within a year, some of it took longer to draw out. I hope others find as much joy and connection in playing it as I have found in making it.</p>
+            <p style="color: var(--silver); font-style: italic;">James Kuang<br>2025</p>
+        </div>
+    </div>
+
     <!-- Resign Confirmation Modal -->
     <div class="modal" id="resignModal">
         <div class="modal-content" style="max-width: 340px; text-align: center;">
@@ -2784,8 +2830,7 @@
     <!-- Welcome Screen Modal -->
     <div class="modal show" id="welcomeModal">
         <div class="modal-content" style="max-width: 360px; text-align: center;">
-            <h2 style="font-size: 2.5rem; margin-bottom: 10px; font-family: 'Philosopher', sans-serif;">INARA</h2>
-            <p style="color: var(--silver); margin-bottom: 30px; font-size: 0.95rem;">A game of abstract strategy</p>
+            <h2 style="font-size: 2.5rem; margin-bottom: 25px; font-family: 'Philosopher', sans-serif;">INARA</h2>
             
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <button class="btn" onclick="closeWelcome(); showNewGameModal();" style="padding: 14px; font-size: 1.1rem;">New Game</button>
@@ -2822,6 +2867,22 @@
             </div>
             
             <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 10px; color: var(--silver);">Extra Lives</label>
+                <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 10px;">
+                    <button class="btn lives-btn" id="lives1Btn" onclick="setLives(1)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
+                        <span style="color: #e74c3c;">♥</span>
+                    </button>
+                    <button class="btn lives-btn" id="lives2Btn" onclick="setLives(2)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
+                        <span style="color: #e74c3c;">♥♥</span>
+                    </button>
+                    <button class="btn lives-btn" id="lives3Btn" onclick="setLives(3)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
+                        <span style="color: #e74c3c;">♥♥♥</span>
+                    </button>
+                </div>
+                <button class="btn lives-btn" id="lives0Btn" onclick="setLives(0)" style="width: 100%; background: var(--gold);">Sudden Death</button>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 10px; color: var(--silver);">Time per Player</label>
                 <div class="time-display" id="timeDisplay">10:00</div>
                 <input type="range" class="time-slider" id="timeSlider" min="0" max="30" value="10" oninput="updateTimeDisplay()">
@@ -2846,7 +2907,10 @@
     <!-- Online Game Modal -->
     <div class="modal" id="onlineModal">
         <div class="modal-content" style="max-width: 380px; text-align: center;">
-            <h2 style="font-size: 1.5rem; margin-bottom: 20px;">Play Online</h2>
+            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px; position: relative;">
+                <button onclick="closeOnlineModal()" style="position: absolute; left: 0; background: none; border: none; color: var(--silver); font-size: 1.2rem; cursor: pointer; padding: 5px;">←</button>
+                <h2 style="font-size: 1.5rem;">Play Online</h2>
+            </div>
             
             <!-- Connection Status -->
             <div id="onlineStatus" style="margin-bottom: 20px; padding: 10px; border-radius: 8px; background: var(--slate);">
@@ -2855,17 +2919,20 @@
             
             <!-- Create/Join Options -->
             <div id="onlineOptions" style="display: none;">
-                <!-- Player Name Input -->
+                <!-- Player Names Input -->
                 <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 10px; color: var(--silver);">Your Name</label>
-                    <input type="text" id="playerNameInput" placeholder="5 chars max" maxlength="5"
+                    <label style="display: block; margin-bottom: 10px; color: var(--silver);">Player Names</label>
+                    <input type="text" id="playerNameInput" placeholder="(You)" maxlength="5"
+                        style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--slate); 
+                               background: var(--onyx); color: var(--pearl); font-size: 1rem; text-align: center;
+                               text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px;">
+                    <input type="text" id="opponentNameInput" placeholder="(Them)" maxlength="5"
                         style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--slate); 
                                background: var(--onyx); color: var(--pearl); font-size: 1rem; text-align: center;
                                text-transform: uppercase; letter-spacing: 0.1em;">
                 </div>
                 
                 <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 10px; color: var(--silver);">Create a Game</label>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                         <button class="btn" id="hostDarkBtn" onclick="setHostSide('dark')" style="flex: 1; background: var(--slate); color: var(--pearl); font-size: 0.85rem; padding: 10px;">
                             Dark<br><small style="opacity: 0.7;">1st move</small>
@@ -2877,6 +2944,24 @@
                             Light<br><small style="opacity: 0.7;">1st shadow</small>
                         </button>
                     </div>
+                    
+                    <!-- Lives selector for online -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; color: var(--silver); font-size: 0.9rem;">Extra Lives</label>
+                        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                            <button class="btn online-lives-btn" id="onlineLives1Btn" onclick="setOnlineLives(1)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
+                                <span style="color: #e74c3c;">♥</span>
+                            </button>
+                            <button class="btn online-lives-btn" id="onlineLives2Btn" onclick="setOnlineLives(2)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
+                                <span style="color: #e74c3c;">♥♥</span>
+                            </button>
+                            <button class="btn online-lives-btn" id="onlineLives3Btn" onclick="setOnlineLives(3)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
+                                <span style="color: #e74c3c;">♥♥♥</span>
+                            </button>
+                        </div>
+                        <button class="btn online-lives-btn" id="onlineLives0Btn" onclick="setOnlineLives(0)" style="width: 100%; background: var(--gold); font-size: 0.85rem;">Sudden Death</button>
+                    </div>
+                    
                     <button class="btn" onclick="createOnlineGame()" style="width: 100%;">
                         Create Game
                     </button>
@@ -2984,6 +3069,7 @@
         // === GAME SETTINGS ===
         let selectedTime = 0; // Default timeless
         let selectedIncrement = 0; // Default no increment
+        let selectedLives = 0; // Default 0 extra lives (sudden death)
 
         function createInitialState() {
             return {
@@ -3008,7 +3094,9 @@
                 clockInterval: null,
                 lastMoveTime: null,
                 lastMove: null,
-                isPaused: false
+                isPaused: false,
+                darkLives: selectedLives + 1,
+                lightLives: selectedLives + 1
             };
         }
 
@@ -3076,7 +3164,9 @@
                 lastMove: gameState.lastMove ? {...gameState.lastMove} : null,
                 darkTime: gameState.darkTime,
                 lightTime: gameState.lightTime,
-                noTimeLimit: gameState.noTimeLimit
+                noTimeLimit: gameState.noTimeLimit,
+                darkLives: gameState.darkLives,
+                lightLives: gameState.lightLives
             };
         }
         
@@ -3744,6 +3834,20 @@
         function renderPanels() {
             getEl('darkPanel').classList.toggle('active', gameState.currentPlayer === 'dark');
             getEl('lightPanel').classList.toggle('active', gameState.currentPlayer === 'light');
+            
+            // Update lives display - only show when using extra lives (lives > 1, not sudden death)
+            const showLives = gameState.darkLives > 1 || gameState.lightLives > 1;
+            
+            const darkLivesEl = getEl('darkLives');
+            const lightLivesEl = getEl('lightLives');
+            
+            darkLivesEl.classList.toggle('visible', showLives);
+            lightLivesEl.classList.toggle('visible', showLives);
+            
+            if (showLives) {
+                darkLivesEl.innerHTML = `<span style="color: #e74c3c;">♥</span> ${gameState.darkLives}`;
+                lightLivesEl.innerHTML = `<span style="color: #e74c3c;">♥</span> ${gameState.lightLives}`;
+            }
         }
 
         // === GAME LOGIC ===
@@ -4163,19 +4267,71 @@
 
             gameState.lastMove = { fromRow, fromCol, toRow, toCol };
 
-            // Check victory - dark starts at bottom (rows 6-7), wins by reaching row 0
-            // light starts at top (rows 0-1), wins by reaching row 7
-            if (piece.player === 'dark' && toRow === 0) {
-                recordMove(moveData);
+            // Check for breakthrough - dark wins by reaching row 0, light by reaching row 7
+            const isBreakthrough = (piece.player === 'dark' && toRow === 0) || 
+                                   (piece.player === 'light' && toRow === 7);
+            
+            if (isBreakthrough) {
+                // Handle captures FIRST (scoring golem still participates)
+                const captures = handleCaptures(toRow, toCol, piece);
+                moveData.captures = captures;
+                
                 if (tutorialMode) {
+                    recordMove(moveData);
                     completeTutorialObjective('reach-goal');
-                } else {
-                    endGame('dark');
+                    return;
                 }
-                return;
-            } else if (piece.player === 'light' && toRow === 7) {
+                
+                // Check opponent's lives
+                const opponent = piece.player === 'dark' ? 'light' : 'dark';
+                
+                // Decrement opponent's lives
+                if (opponent === 'dark') {
+                    gameState.darkLives--;
+                } else {
+                    gameState.lightLives--;
+                }
+                
+                const remainingLives = opponent === 'dark' ? gameState.darkLives : gameState.lightLives;
+                
+                // If opponent has no lives left, immediate win
+                if (remainingLives <= 0) {
+                    recordMove(moveData);
+                    endGame(piece.player);
+                    return;
+                }
+                
+                // Dismantle scoring golem back to scorer's supply as mask
+                gameState.board[toRow][toCol] = null;
+                const supply = piece.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                supply.masks.push({ shape: piece.shape, color: piece.color });
+                
+                // Place shadow on origin square if primed (before checking game end)
+                const canPlaceShadow = supply.shadows > 0 && 
+                    (piece.player === 'light' || gameState.lightHasPlacedShadow);
+                if (canPlaceShadow && gameState.shadowPrimed) {
+                    placeShadow(fromRow, fromCol, piece.player);
+                    moveData.shadowPlaced = { row: fromRow, col: fromCol };
+                }
+                gameState.shadowPrimed = false;
+                
+                // Record move data for breakthrough
+                moveData.breakthrough = true;
+                moveData.dismantled = { shape: piece.shape, color: piece.color };
                 recordMove(moveData);
-                if (!tutorialMode) endGame('light');
+                
+                // Send move to opponent in online mode
+                if (onlineMode && isLocalPlayerTurn()) {
+                    sendOnlineMessage({
+                        type: 'move',
+                        move: moveData
+                    });
+                }
+                
+                // Game continues - show breakthrough notification
+                showBreakthroughNotification(piece.player, remainingLives);
+                
+                completeTurn();
                 return;
             }
 
@@ -5875,6 +6031,30 @@
         }
 
         // === GAME END ===
+        function showBreakthroughNotification(scorer, opponentLivesRemaining) {
+            // Create temporary notification
+            const notification = document.createElement('div');
+            notification.className = 'breakthrough-notification';
+            notification.innerHTML = `
+                <div style="font-size: 1.2rem; font-weight: 600;">${capitalize(scorer)} scores!</div>
+                <div style="font-size: 0.9rem; opacity: 0.8; margin-top: 4px;">
+                    ${opponentLivesRemaining} ${opponentLivesRemaining === 1 ? 'life' : 'lives'} remaining
+                </div>
+            `;
+            document.body.appendChild(notification);
+            
+            // Animate in
+            requestAnimationFrame(() => {
+                notification.classList.add('show');
+            });
+            
+            // Remove after delay
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 1500);
+        }
+        
         function endGame(winner, message) {
             gameState.gameOver = true;
             if (gameState.clockInterval) clearInterval(gameState.clockInterval);
@@ -6014,6 +6194,22 @@
             
             display.textContent = `+${seconds}s`;
             selectedIncrement = seconds;
+        }
+
+        function setLives(lives) {
+            selectedLives = lives;
+            
+            // Update button styles (0, 1, 2, 3 are the options)
+            [1, 2, 3].forEach(n => {
+                const btn = document.getElementById(`lives${n}Btn`);
+                btn.style.background = lives === n ? 'var(--gold)' : 'var(--slate)';
+                btn.style.color = lives === n ? '' : 'var(--pearl)';
+            });
+            
+            // Sudden Death button (0 lives)
+            const sdBtn = document.getElementById('lives0Btn');
+            sdBtn.style.background = lives === 0 ? 'var(--gold)' : 'var(--slate)';
+            sdBtn.style.color = lives === 0 ? '' : 'var(--pearl)';
         }
 
         // Game Mode controls
@@ -6179,6 +6375,14 @@
 
         function toggleRules() {
             document.getElementById('rulesModal').classList.toggle('show');
+        }
+        
+        function showAbout() {
+            document.getElementById('aboutModal').classList.add('show');
+        }
+        
+        function closeAbout() {
+            document.getElementById('aboutModal').classList.remove('show');
         }
 
         // Rules tab switching
@@ -7240,6 +7444,8 @@
                 masks: initial.lightSupply.masks.map(m => ({...m}))
             };
             gameState.lightHasPlacedShadow = initial.lightHasPlacedShadow;
+            gameState.darkLives = initial.darkLives !== undefined ? initial.darkLives : 1;
+            gameState.lightLives = initial.lightLives !== undefined ? initial.lightLives : 1;
             gameState.lastMove = null;
             
             // Replay moves up to target index
@@ -7301,6 +7507,21 @@
                     supply.shadows--;
                     if (player === 'light') {
                         gameState.lightHasPlacedShadow = true;
+                    }
+                }
+                
+                // Handle breakthrough (scoring)
+                if (move.breakthrough && move.dismantled) {
+                    // Remove golem from destination (it was dismantled)
+                    gameState.board[move.to.row][move.to.col] = null;
+                    // Add mask to scorer's supply
+                    supply.masks.push({ shape: move.dismantled.shape, color: move.dismantled.color });
+                    // Decrement opponent's lives
+                    const opponent = player === 'dark' ? 'light' : 'dark';
+                    if (opponent === 'dark') {
+                        gameState.darkLives--;
+                    } else {
+                        gameState.lightLives--;
                     }
                 }
                 
@@ -7524,6 +7745,10 @@
         document.getElementById('rulesModal').addEventListener('click', (e) => {
             if (e.target.id === 'rulesModal') toggleRules();
         });
+        
+        document.getElementById('aboutModal').addEventListener('click', (e) => {
+            if (e.target.id === 'aboutModal') closeAbout();
+        });
 
         document.getElementById('tutorialModal').addEventListener('click', (e) => {
             if (e.target.id === 'tutorialModal') closeTutorial();
@@ -7679,6 +7904,9 @@
             onlineMode = false;
             localPlayer = null;
             isHost = false;
+            
+            // Return to New Game modal
+            showNewGameModal();
         }
         
         function showOnlineStatus(msg) {
@@ -7710,6 +7938,23 @@
             document.getElementById('hostRandomBtn').style.color = side === 'random' ? '' : 'var(--pearl)';
             document.getElementById('hostLightBtn').style.background = side === 'light' ? 'var(--gold)' : 'var(--slate)';
             document.getElementById('hostLightBtn').style.color = side === 'light' ? '' : 'var(--pearl)';
+        }
+        
+        let selectedOnlineLives = 0; // Default sudden death for online
+        
+        function setOnlineLives(lives) {
+            selectedOnlineLives = lives;
+            
+            [1, 2, 3].forEach(n => {
+                const btn = document.getElementById(`onlineLives${n}Btn`);
+                btn.style.background = lives === n ? 'var(--gold)' : 'var(--slate)';
+                btn.style.color = lives === n ? '' : 'var(--pearl)';
+            });
+            
+            // Sudden Death button (0 lives)
+            const sdBtn = document.getElementById('onlineLives0Btn');
+            sdBtn.style.background = lives === 0 ? 'var(--gold)' : 'var(--slate)';
+            sdBtn.style.color = lives === 0 ? '' : 'var(--pearl)';
         }
         
         function showOnlineWaiting(code) {
@@ -7796,9 +8041,11 @@
         }
         
         function createOnlineGame() {
-            // Get player name
+            // Get player names
             const nameInput = document.getElementById('playerNameInput');
+            const opponentInput = document.getElementById('opponentNameInput');
             localPlayerName = nameInput.value.trim().toUpperCase().slice(0, 5) || 'HOST';
+            remotePlayerName = opponentInput.value.trim().toUpperCase().slice(0, 5) || 'GUEST';
             
             isHost = true;
             
@@ -7910,6 +8157,9 @@
             spectateMode = false;
             
             if (isHost) {
+                // Set lives from online selection
+                selectedLives = selectedOnlineLives;
+                
                 // Host initializes the game
                 initGame();
                 
@@ -7920,6 +8170,7 @@
                     state: serializeGameState(),
                     yourSide: joinerSide,
                     hostName: localPlayerName,
+                    joinerName: remotePlayerName,
                     hostSide: localPlayer
                 });
                 
@@ -7960,16 +8211,12 @@
                         console.log('Sending game state to joiner');
                         const joinerSide = localPlayer === 'dark' ? 'light' : 'dark';
                         
-                        // Store joiner's name
-                        if (data.playerName) {
-                            remotePlayerName = data.playerName;
-                        }
-                        
                         sendOnlineMessage({
                             type: 'gameStart',
                             state: serializeGameState(),
                             yourSide: joinerSide,
                             hostName: localPlayerName,
+                            joinerName: remotePlayerName, // Name host set for the joiner
                             hostSide: localPlayer
                         });
                         
@@ -7988,9 +8235,12 @@
                     // Set our side as assigned by host
                     localPlayer = data.yourSide;
                     
-                    // Store host's name
+                    // Use names set by host
                     if (data.hostName) {
                         remotePlayerName = data.hostName;
+                    }
+                    if (data.joinerName) {
+                        localPlayerName = data.joinerName; // Host set our name
                     }
                     
                     // Load the game state
@@ -8050,6 +8300,10 @@
                 masks: state.lightSupply.masks.map(m => ({...m}))
             };
             gameState.lightHasPlacedShadow = state.lightHasPlacedShadow;
+            
+            // Copy lives
+            gameState.darkLives = state.darkLives || 1;
+            gameState.lightLives = state.lightLives || 1;
             
             // Analysis data for replay
             analysisData = {
