@@ -2230,7 +2230,7 @@
                 <div class="player-panel" id="lightPanel">
                     <div class="player-header">
                         <div class="player-name-row">
-                            <span class="player-name">Light</span>
+                            <span class="player-name" id="lightPlayerName">Light</span>
                             <div class="masks-container" id="lightMasksDisplay"></div>
                         </div>
                         <div class="header-right">
@@ -2258,7 +2258,7 @@
                 <div class="player-panel active" id="darkPanel">
                     <div class="player-header">
                         <div class="player-name-row">
-                            <span class="player-name">Dark</span>
+                            <span class="player-name" id="darkPlayerName">Dark</span>
                             <div class="masks-container" id="darkMasksDisplay"></div>
                         </div>
                         <div class="header-right">
@@ -2806,9 +2806,9 @@
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 10px; color: var(--silver);">Opponent</label>
                 <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button class="btn" id="humanBtn" onclick="setGameMode('human')" style="flex: 1; background: var(--gold);">Human</button>
-                    <button class="btn" id="cpuBtn" onclick="setGameMode('cpu')" style="flex: 1; background: var(--slate); color: var(--pearl);">CPU (V6)</button>
+                    <button class="btn" id="humanBtn" onclick="setGameMode('human')" style="flex: 1; background: var(--gold);">Local</button>
                     <button class="btn" id="onlineBtn" onclick="setGameMode('online')" style="flex: 1; background: var(--slate); color: var(--pearl);">Online</button>
+                    <button class="btn" id="cpuBtn" onclick="setGameMode('cpu')" style="flex: 1; background: var(--slate); color: var(--pearl);">CPU</button>
                 </div>
             </div>
             
@@ -2855,13 +2855,22 @@
             
             <!-- Create/Join Options -->
             <div id="onlineOptions" style="display: none;">
+                <!-- Player Name Input -->
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 10px; color: var(--silver);">Your Name</label>
+                    <input type="text" id="playerNameInput" placeholder="5 chars max" maxlength="5"
+                        style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--slate); 
+                               background: var(--onyx); color: var(--pearl); font-size: 1rem; text-align: center;
+                               text-transform: uppercase; letter-spacing: 0.1em;">
+                </div>
+                
                 <div style="margin-bottom: 20px;">
                     <label style="display: block; margin-bottom: 10px; color: var(--silver);">Create a Game</label>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                        <button class="btn" id="hostDarkBtn" onclick="setHostSide('dark')" style="flex: 1; background: var(--gold); font-size: 0.85rem; padding: 10px;">
+                        <button class="btn" id="hostDarkBtn" onclick="setHostSide('dark')" style="flex: 1; background: var(--slate); color: var(--pearl); font-size: 0.85rem; padding: 10px;">
                             Dark<br><small style="opacity: 0.7;">1st move</small>
                         </button>
-                        <button class="btn" id="hostRandomBtn" onclick="setHostSide('random')" style="flex: 1; background: var(--slate); color: var(--pearl); font-size: 0.85rem; padding: 10px;">
+                        <button class="btn" id="hostRandomBtn" onclick="setHostSide('random')" style="flex: 1; background: var(--gold); font-size: 0.85rem; padding: 10px;">
                             Random
                         </button>
                         <button class="btn" id="hostLightBtn" onclick="setHostSide('light')" style="flex: 1; background: var(--slate); color: var(--pearl); font-size: 0.85rem; padding: 10px;">
@@ -2960,7 +2969,9 @@
         let peer = null;
         let conn = null;
         let isHost = false;
-        let selectedHostSide = 'dark'; // 'dark', 'light', or 'random'
+        let selectedHostSide = 'random'; // 'dark', 'light', or 'random'
+        let localPlayerName = '';
+        let remotePlayerName = '';
         
         // === ANALYSIS DATA ===
         let analysisData = {
@@ -7577,6 +7588,9 @@
                 // Close welcome modal if open
                 closeWelcome();
                 
+                // Set a default guest name for auto-join
+                localPlayerName = 'GUEST';
+                
                 // Open online modal and auto-join
                 const modal = document.getElementById('onlineModal');
                 modal.classList.add('show');
@@ -7598,7 +7612,7 @@
                     conn.on('open', () => {
                         console.log('Connected to host!');
                         setupConnectionHandlers();
-                        sendOnlineMessage({ type: 'requestGameState' });
+                        sendOnlineMessage({ type: 'requestGameState', playerName: localPlayerName });
                     });
                     
                     conn.on('error', (err) => {
@@ -7684,7 +7698,7 @@
             document.getElementById('onlineError').style.display = 'none';
             
             // Reset side selection to default
-            setHostSide('dark');
+            setHostSide('random');
         }
         
         function setHostSide(side) {
@@ -7782,6 +7796,10 @@
         }
         
         function createOnlineGame() {
+            // Get player name
+            const nameInput = document.getElementById('playerNameInput');
+            localPlayerName = nameInput.value.trim().toUpperCase().slice(0, 5) || 'HOST';
+            
             isHost = true;
             
             // Determine host's side
@@ -7837,6 +7855,10 @@
                 return;
             }
             
+            // Get player name
+            const nameInput = document.getElementById('playerNameInput');
+            localPlayerName = nameInput.value.trim().toUpperCase().slice(0, 5) || 'GUEST';
+            
             isHost = false;
             localPlayer = null; // Will be assigned by host
             
@@ -7849,8 +7871,8 @@
                 console.log('Connected to host!');
                 setupConnectionHandlers();
                 
-                // Request game state from host (in case we missed the initial send)
-                sendOnlineMessage({ type: 'requestGameState' });
+                // Request game state from host, include our name
+                sendOnlineMessage({ type: 'requestGameState', playerName: localPlayerName });
             });
             
             conn.on('error', (err) => {
@@ -7896,7 +7918,9 @@
                 sendOnlineMessage({
                     type: 'gameStart',
                     state: serializeGameState(),
-                    yourSide: joinerSide
+                    yourSide: joinerSide,
+                    hostName: localPlayerName,
+                    hostSide: localPlayer
                 });
                 
                 // Flip board if host is playing light
@@ -7910,6 +7934,24 @@
             }
         }
         
+        function updatePlayerNames() {
+            if (!onlineMode) return;
+            
+            // Determine which name goes to which side
+            let darkName, lightName;
+            
+            if (localPlayer === 'dark') {
+                darkName = localPlayerName;
+                lightName = remotePlayerName || 'Light';
+            } else {
+                darkName = remotePlayerName || 'Dark';
+                lightName = localPlayerName;
+            }
+            
+            document.getElementById('darkPlayerName').textContent = darkName;
+            document.getElementById('lightPlayerName').textContent = lightName;
+        }
+        
         function handleOnlineMessage(data) {
             switch (data.type) {
                 case 'requestGameState':
@@ -7917,11 +7959,22 @@
                     if (isHost && onlineMode) {
                         console.log('Sending game state to joiner');
                         const joinerSide = localPlayer === 'dark' ? 'light' : 'dark';
+                        
+                        // Store joiner's name
+                        if (data.playerName) {
+                            remotePlayerName = data.playerName;
+                        }
+                        
                         sendOnlineMessage({
                             type: 'gameStart',
                             state: serializeGameState(),
-                            yourSide: joinerSide
+                            yourSide: joinerSide,
+                            hostName: localPlayerName,
+                            hostSide: localPlayer
                         });
+                        
+                        // Update panel labels with names
+                        updatePlayerNames();
                     }
                     break;
                     
@@ -7935,8 +7988,16 @@
                     // Set our side as assigned by host
                     localPlayer = data.yourSide;
                     
+                    // Store host's name
+                    if (data.hostName) {
+                        remotePlayerName = data.hostName;
+                    }
+                    
                     // Load the game state
                     loadOnlineGameState(data.state);
+                    
+                    // Update panel labels with names
+                    updatePlayerNames();
                     
                     // Flip board if we're playing light
                     setBoardFlip(localPlayer === 'light');
