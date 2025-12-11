@@ -2856,21 +2856,31 @@
             <!-- Create/Join Options -->
             <div id="onlineOptions" style="display: none;">
                 <div style="margin-bottom: 20px;">
-                    <button class="btn" onclick="createOnlineGame()" style="width: 100%; margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 10px; color: var(--silver);">Create a Game</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <button class="btn" id="hostDarkBtn" onclick="setHostSide('dark')" style="flex: 1; background: var(--gold); font-size: 0.85rem; padding: 10px;">
+                            Dark<br><small style="opacity: 0.7;">1st move</small>
+                        </button>
+                        <button class="btn" id="hostRandomBtn" onclick="setHostSide('random')" style="flex: 1; background: var(--slate); color: var(--pearl); font-size: 0.85rem; padding: 10px;">
+                            Random
+                        </button>
+                        <button class="btn" id="hostLightBtn" onclick="setHostSide('light')" style="flex: 1; background: var(--slate); color: var(--pearl); font-size: 0.85rem; padding: 10px;">
+                            Light<br><small style="opacity: 0.7;">1st shadow</small>
+                        </button>
+                    </div>
+                    <button class="btn" onclick="createOnlineGame()" style="width: 100%;">
                         Create Game
-                        <br><small style="opacity: 0.7;">You play as Dark (first move)</small>
                     </button>
                 </div>
                 
                 <div style="border-top: 1px solid var(--slate); padding-top: 20px;">
                     <label style="display: block; margin-bottom: 10px; color: var(--silver);">Join a Game</label>
-                    <input type="text" id="joinCodeInput" placeholder="Enter room code" 
+                    <input type="text" id="joinCodeInput" placeholder="e.g. blue-tiger-42" 
                         style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--slate); 
                                background: var(--onyx); color: var(--pearl); font-size: 1rem; text-align: center;
-                               letter-spacing: 0.1em; margin-bottom: 10px;">
+                               margin-bottom: 10px;">
                     <button class="btn" onclick="joinOnlineGame()" style="width: 100%; background: var(--slate); color: var(--pearl);">
                         Join Game
-                        <br><small style="opacity: 0.7;">You play as Light</small>
                     </button>
                 </div>
             </div>
@@ -2949,6 +2959,7 @@
         let peer = null;
         let conn = null;
         let isHost = false;
+        let selectedHostSide = 'dark'; // 'dark', 'light', or 'random'
         
         // === ANALYSIS DATA ===
         let analysisData = {
@@ -7559,12 +7570,22 @@
         // === ONLINE MULTIPLAYER FUNCTIONS ===
         
         function generateRoomCode() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars like 0,O,1,I
-            let code = '';
-            for (let i = 0; i < 4; i++) {
-                code += chars[Math.floor(Math.random() * chars.length)];
-            }
-            return code;
+            const adjectives = [
+                'red', 'blue', 'green', 'gold', 'silver', 'bronze', 'iron', 'copper',
+                'swift', 'bold', 'calm', 'dark', 'light', 'wild', 'wise', 'keen',
+                'north', 'south', 'east', 'west', 'high', 'deep', 'old', 'new',
+                'fire', 'ice', 'storm', 'sun', 'moon', 'star', 'wind', 'stone'
+            ];
+            const nouns = [
+                'wolf', 'hawk', 'bear', 'lion', 'tiger', 'eagle', 'raven', 'fox',
+                'peak', 'vale', 'grove', 'lake', 'river', 'ocean', 'forest', 'desert',
+                'knight', 'queen', 'king', 'bishop', 'rook', 'pawn', 'tower', 'castle',
+                'golem', 'shadow', 'glyph', 'moon', 'sand', 'mirror', 'mask', 'flame'
+            ];
+            const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const noun = nouns[Math.floor(Math.random() * nouns.length)];
+            const num = Math.floor(Math.random() * 100);
+            return `${adj}-${noun}-${num}`;
         }
         
         function openOnlineModal() {
@@ -7611,6 +7632,20 @@
             document.getElementById('onlineWaiting').style.display = 'none';
             document.getElementById('onlineJoining').style.display = 'none';
             document.getElementById('onlineError').style.display = 'none';
+            
+            // Reset side selection to default
+            setHostSide('dark');
+        }
+        
+        function setHostSide(side) {
+            selectedHostSide = side;
+            
+            document.getElementById('hostDarkBtn').style.background = side === 'dark' ? 'var(--gold)' : 'var(--slate)';
+            document.getElementById('hostDarkBtn').style.color = side === 'dark' ? '' : 'var(--pearl)';
+            document.getElementById('hostRandomBtn').style.background = side === 'random' ? 'var(--gold)' : 'var(--slate)';
+            document.getElementById('hostRandomBtn').style.color = side === 'random' ? '' : 'var(--pearl)';
+            document.getElementById('hostLightBtn').style.background = side === 'light' ? 'var(--gold)' : 'var(--slate)';
+            document.getElementById('hostLightBtn').style.color = side === 'light' ? '' : 'var(--pearl)';
         }
         
         function showOnlineWaiting(code) {
@@ -7684,7 +7719,13 @@
         
         function createOnlineGame() {
             isHost = true;
-            localPlayer = 'dark';
+            
+            // Determine host's side
+            if (selectedHostSide === 'random') {
+                localPlayer = Math.random() < 0.5 ? 'dark' : 'light';
+            } else {
+                localPlayer = selectedHostSide;
+            }
             
             const roomCode = generateRoomCode();
             
@@ -7724,15 +7765,16 @@
         
         function joinOnlineGame() {
             const codeInput = document.getElementById('joinCodeInput');
-            const code = codeInput.value.trim().toUpperCase();
+            const code = codeInput.value.trim().toLowerCase();
             
-            if (code.length !== 4) {
-                showOnlineError('Please enter a 4-character room code.');
+            // Basic validation - should be like "word-word-number"
+            if (!code || !code.includes('-')) {
+                showOnlineError('Please enter a room code (e.g. blue-tiger-42)');
                 return;
             }
             
             isHost = false;
-            localPlayer = 'light';
+            localPlayer = null; // Will be assigned by host
             
             showOnlineJoining();
             
@@ -7742,6 +7784,9 @@
             conn.on('open', () => {
                 console.log('Connected to host!');
                 setupConnectionHandlers();
+                
+                // Request game state from host (in case we missed the initial send)
+                sendOnlineMessage({ type: 'requestGameState' });
             });
             
             conn.on('error', (err) => {
@@ -7782,14 +7827,16 @@
                 // Host initializes the game
                 initGame();
                 
-                // Send initial state to opponent
+                // Send initial state to opponent with their side assignment
+                const joinerSide = localPlayer === 'dark' ? 'light' : 'dark';
                 sendOnlineMessage({
                     type: 'gameStart',
-                    state: serializeGameState()
+                    state: serializeGameState(),
+                    yourSide: joinerSide
                 });
                 
-                // Dark plays first, host is dark, so board is not flipped
-                setBoardFlip(false);
+                // Flip board if host is playing light
+                setBoardFlip(localPlayer === 'light');
             }
         }
         
@@ -7801,6 +7848,19 @@
         
         function handleOnlineMessage(data) {
             switch (data.type) {
+                case 'requestGameState':
+                    // Joiner is asking for game state - send it
+                    if (isHost && onlineMode) {
+                        console.log('Sending game state to joiner');
+                        const joinerSide = localPlayer === 'dark' ? 'light' : 'dark';
+                        sendOnlineMessage({
+                            type: 'gameStart',
+                            state: serializeGameState(),
+                            yourSide: joinerSide
+                        });
+                    }
+                    break;
+                    
                 case 'gameStart':
                     // Received initial game state from host
                     document.getElementById('onlineModal').classList.remove('show');
@@ -7808,11 +7868,14 @@
                     cpuMode = false;
                     spectateMode = false;
                     
+                    // Set our side as assigned by host
+                    localPlayer = data.yourSide;
+                    
                     // Load the game state
                     loadOnlineGameState(data.state);
                     
-                    // Light plays second, so flip board for light player
-                    setBoardFlip(true);
+                    // Flip board if we're playing light
+                    setBoardFlip(localPlayer === 'light');
                     break;
                     
                 case 'move':
