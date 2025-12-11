@@ -4301,10 +4301,11 @@
                     return;
                 }
                 
-                // Dismantle scoring golem back to scorer's supply as mask
+                // Dismantle scoring golem back to scorer's supply as mask + shadow
                 gameState.board[toRow][toCol] = null;
                 const supply = piece.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
                 supply.masks.push({ shape: piece.shape, color: piece.color });
+                supply.shadows++;
                 
                 // Place shadow on origin square if primed (before checking game end)
                 const canPlaceShadow = supply.shadows > 0 && 
@@ -7514,8 +7515,9 @@
                 if (move.breakthrough && move.dismantled) {
                     // Remove golem from destination (it was dismantled)
                     gameState.board[move.to.row][move.to.col] = null;
-                    // Add mask to scorer's supply
+                    // Add mask + shadow to scorer's supply
                     supply.masks.push({ shape: move.dismantled.shape, color: move.dismantled.color });
+                    supply.shadows++;
                     // Decrement opponent's lives
                     const opponent = player === 'dark' ? 'light' : 'dark';
                     if (opponent === 'dark') {
