@@ -3038,11 +3038,17 @@
                         <button class="btn online-lives-btn" id="onlineLives0Btn" onclick="setOnlineLives(0)" style="width: 100%; background: var(--gold); font-size: 0.85rem;">Sudden Death</button>
                     </div>
                     
-                    <!-- Time indicator (greyed out for online) -->
-                    <div style="margin-bottom: 15px; opacity: 0.5;">
-                        <label style="display: block; margin-bottom: 8px; color: var(--silver); font-size: 0.9rem;">Time</label>
-                        <div style="padding: 10px; background: var(--slate); border-radius: 8px; color: var(--silver); font-size: 0.9rem;">
-                            No Limit
+                    <!-- Move Timer for online -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; color: var(--silver); font-size: 0.9rem;">
+                            Move Timer
+                            <span class="move-timer-help" onclick="showMoveTimerHelp()" style="cursor: pointer; width: 16px; height: 16px; border-radius: 50%; background: var(--slate); color: var(--silver); font-size: 0.7rem; display: inline-flex; align-items: center; justify-content: center;">?</span>
+                        </label>
+                        <div class="time-display" id="moveTimerDisplay" style="font-size: 1.1rem; margin-bottom: 8px;">∞</div>
+                        <input type="range" class="time-slider" id="moveTimerSlider" min="0" max="6" value="0" oninput="updateMoveTimerDisplay()">
+                        <div class="time-labels">
+                            <span>∞</span>
+                            <span>60s</span>
                         </div>
                     </div>
                     
@@ -3956,7 +3962,10 @@
                 lastMove: null,
                 isPaused: false,
                 darkLives: selectedLives + 1,
-                lightLives: selectedLives + 1
+                lightLives: selectedLives + 1,
+                // Move timer for online (0 = no limit)
+                moveTimer: 0,
+                moveTimeRemaining: 0
             };
         }
 
@@ -4026,7 +4035,8 @@
                 lightTime: gameState.lightTime,
                 noTimeLimit: gameState.noTimeLimit,
                 darkLives: gameState.darkLives,
-                lightLives: gameState.lightLives
+                lightLives: gameState.lightLives,
+                moveTimer: gameState.moveTimer || 0
             };
         }
         
@@ -4175,6 +4185,95 @@
             const secs = Math.floor(seconds % 60);
             const ms = Math.floor((seconds % 1) * 10);
             return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms}`;
+        }
+        
+        // === MOVE TIMER (for online games) ===
+        let moveTimerInterval = null;
+        let moveTimerLastUpdate = null;
+        
+        function startMoveTimer() {
+            if (moveTimerInterval) clearInterval(moveTimerInterval);
+            if (!gameState.moveTimer || gameState.moveTimer === 0) return;
+            
+            // Only run timer if it's our turn
+            if (!isLocalPlayerTurn()) return;
+            
+            gameState.moveTimeRemaining = gameState.moveTimer;
+            moveTimerLastUpdate = Date.now();
+            moveTimerInterval = setInterval(updateMoveTimer, 100);
+            renderMoveTimer();
+        }
+        
+        function stopMoveTimer() {
+            if (moveTimerInterval) {
+                clearInterval(moveTimerInterval);
+                moveTimerInterval = null;
+            }
+        }
+        
+        function resetMoveTimer() {
+            stopMoveTimer();
+            if (!gameState.moveTimer || gameState.moveTimer === 0) return;
+            
+            gameState.moveTimeRemaining = gameState.moveTimer;
+            renderMoveTimer();
+            
+            // Only start if it's our turn
+            if (isLocalPlayerTurn()) {
+                moveTimerLastUpdate = Date.now();
+                moveTimerInterval = setInterval(updateMoveTimer, 100);
+            }
+        }
+        
+        function updateMoveTimer() {
+            if (gameState.gameOver || gameState.isPaused) return;
+            if (!isLocalPlayerTurn()) {
+                stopMoveTimer();
+                return;
+            }
+            
+            const now = Date.now();
+            const elapsed = (now - moveTimerLastUpdate) / 1000;
+            moveTimerLastUpdate = now;
+            
+            gameState.moveTimeRemaining = Math.max(0, gameState.moveTimeRemaining - elapsed);
+            renderMoveTimer();
+            
+            if (gameState.moveTimeRemaining <= 0) {
+                stopMoveTimer();
+                // Time's up - local player loses
+                const winner = localPlayer === 'dark' ? 'light' : 'dark';
+                const loserName = localPlayer === 'dark' ? 'Dark' : 'Light';
+                
+                // Notify opponent
+                if (onlineMode && conn && conn.open) {
+                    sendOnlineMessage({ type: 'timeout', loser: localPlayer });
+                }
+                
+                endGame(winner, `${loserName} ran out of time!`);
+            }
+        }
+        
+        function renderMoveTimer() {
+            // Use existing clock display for the current player
+            if (!gameState.moveTimer || gameState.moveTimer === 0) return;
+            
+            const darkClock = getEl('darkClock');
+            const lightClock = getEl('lightClock');
+            
+            const timeStr = Math.ceil(gameState.moveTimeRemaining) + 's';
+            
+            if (gameState.currentPlayer === 'dark') {
+                darkClock.textContent = timeStr;
+                darkClock.classList.toggle('warning', gameState.moveTimeRemaining < 5);
+                lightClock.textContent = gameState.moveTimer + 's';
+                lightClock.classList.remove('warning');
+            } else {
+                lightClock.textContent = timeStr;
+                lightClock.classList.toggle('warning', gameState.moveTimeRemaining < 5);
+                darkClock.textContent = gameState.moveTimer + 's';
+                darkClock.classList.remove('warning');
+            }
         }
 
         function togglePause() {
@@ -5546,6 +5645,11 @@
             // Check for draw (no valid actions)
             if (!hasValidActions(gameState.currentPlayer)) {
                 endGame('draw', 'Draw - no valid moves available!');
+            }
+            
+            // Reset move timer for online games
+            if (onlineMode && gameState.moveTimer > 0) {
+                resetMoveTimer();
             }
             
             // Trigger CPU move if it's CPU's turn
@@ -8864,6 +8968,8 @@
         }
         
         let selectedOnlineLives = 0; // Default sudden death for online
+        let selectedMoveTimer = 0; // 0 = no limit, otherwise seconds per move
+        const moveTimerValues = [0, 10, 20, 30, 40, 50, 60]; // Slider positions
         
         function setOnlineLives(lives) {
             selectedOnlineLives = lives;
@@ -8878,6 +8984,23 @@
             const sdBtn = document.getElementById('onlineLives0Btn');
             sdBtn.style.background = lives === 0 ? 'var(--gold)' : 'var(--slate)';
             sdBtn.style.color = lives === 0 ? '' : 'var(--pearl)';
+        }
+        
+        function updateMoveTimerDisplay() {
+            const slider = document.getElementById('moveTimerSlider');
+            const display = document.getElementById('moveTimerDisplay');
+            const index = parseInt(slider.value);
+            selectedMoveTimer = moveTimerValues[index];
+            
+            if (selectedMoveTimer === 0) {
+                display.textContent = '∞';
+            } else {
+                display.textContent = selectedMoveTimer + 's';
+            }
+        }
+        
+        function showMoveTimerHelp() {
+            alert('Online games use a per-move timer instead of a total game clock. Each player\'s timer resets at the start of their turn, so no synchronization between devices is needed.');
         }
         
         function showOnlineWaiting(code) {
@@ -9138,11 +9261,20 @@
                 // Set lives from online selection
                 selectedLives = selectedOnlineLives;
                 
-                // Force untimed for online games
+                // Force untimed for online games (total time)
                 selectedTime = 0;
                 
                 // Host initializes the game
                 initGame();
+                
+                // Set move timer after init
+                gameState.moveTimer = selectedMoveTimer;
+                gameState.moveTimeRemaining = selectedMoveTimer;
+                
+                // Start move timer if applicable
+                if (selectedMoveTimer > 0) {
+                    startMoveTimer();
+                }
                 
                 // Send initial state to opponent with their side assignment
                 const joinerSide = localPlayer === 'dark' ? 'light' : 'dark';
@@ -9152,7 +9284,8 @@
                     yourSide: joinerSide,
                     hostName: localPlayerName,
                     joinerName: remotePlayerName,
-                    hostSide: localPlayer
+                    hostSide: localPlayer,
+                    moveTimer: selectedMoveTimer
                 });
                 
                 // Flip board if host is playing light
@@ -9258,6 +9391,13 @@
                     // Opponent declined our draw offer
                     // Just close the modal, game continues
                     break;
+                    
+                case 'timeout':
+                    // Opponent ran out of time
+                    const winner = data.loser === 'dark' ? 'light' : 'dark';
+                    const loserName = data.loser === 'dark' ? 'Dark' : 'Light';
+                    endGame(winner, `${loserName} ran out of time!`);
+                    break;
             }
         }
         
@@ -9286,6 +9426,10 @@
             gameState.darkLives = state.darkLives || 1;
             gameState.lightLives = state.lightLives || 1;
             
+            // Copy move timer
+            gameState.moveTimer = state.moveTimer || 0;
+            gameState.moveTimeRemaining = state.moveTimer || 0;
+            
             // Analysis data for replay
             analysisData = {
                 initialState: serializeGameState(),
@@ -9296,6 +9440,11 @@
             
             historyStack = [];
             renderGame();
+            
+            // Start move timer if applicable and it's our turn
+            if (gameState.moveTimer > 0) {
+                resetMoveTimer();
+            }
         }
         
         function applyOnlineMove(moveData) {
