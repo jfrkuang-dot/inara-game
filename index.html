@@ -2906,9 +2906,10 @@
     <div class="modal" id="disconnectModal">
         <div class="modal-content" style="max-width: 380px; text-align: center;">
             <h2 style="font-size: 1.5rem; margin-bottom: 15px;">Opponent Disconnected</h2>
-            <p style="color: var(--silver); margin-bottom: 20px;">You can resume this game later by loading the exported file in Online → Load Game.</p>
+            <p style="color: var(--silver); margin-bottom: 20px;">Your game has been saved. You can resume it from Online → New Game.</p>
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button class="btn" onclick="exportAndCloseDisconnect()" style="background: var(--gold);">Export Game</button>
+                <button class="btn" onclick="resumeFromDisconnect()" style="background: var(--gold);">Resume Game</button>
+                <button class="btn" onclick="exportAndCloseDisconnect()" style="background: var(--slate); color: var(--pearl);">Export Game</button>
                 <button class="btn" onclick="closeDisconnectModal()" style="background: var(--slate); color: var(--pearl);">Return to Menu</button>
             </div>
         </div>
@@ -3007,6 +3008,13 @@
             
             <!-- Create/Join Options -->
             <div id="onlineOptions" style="display: none;">
+                <!-- Saved Game Banner (hidden by default) -->
+                <div id="onlineBackupBanner" style="display: none; margin-bottom: 15px; padding: 12px; background: var(--slate); border-radius: 8px; border: 1px solid var(--gold);">
+                    <p style="color: var(--gold); margin-bottom: 10px; font-size: 0.9rem;">📁 You have a saved game</p>
+                    <button class="btn" onclick="resumeFromBackup()" style="width: 100%; background: var(--gold); font-size: 0.9rem;">Resume Saved Game</button>
+                    <button class="btn" onclick="discardBackup()" style="width: 100%; margin-top: 8px; background: transparent; color: var(--silver); font-size: 0.8rem; padding: 6px;">Discard</button>
+                </div>
+                
                 <!-- Player Names Input -->
                 <div style="margin-bottom: 20px;">
                     <label style="display: block; margin-bottom: 10px; color: var(--silver);">Player Names</label>
@@ -5671,6 +5679,11 @@
                 resetMoveTimer();
             }
             
+            // Auto-save online game for disconnect recovery
+            if (onlineMode) {
+                saveOnlineGameBackup();
+            }
+            
             // Trigger CPU move if it's CPU's turn
             triggerCpuMoveIfNeeded();
         }
@@ -7042,6 +7055,11 @@
         function endGame(winner, message) {
             gameState.gameOver = true;
             if (gameState.clockInterval) clearInterval(gameState.clockInterval);
+            
+            // Clear online backup since game ended normally
+            if (onlineMode) {
+                clearOnlineGameBackup();
+            }
 
             document.getElementById('victoryTitle').textContent = winner === 'draw' ? 'Draw!' : 'Victory!';
             document.getElementById('victoryMessage').textContent = 
@@ -9042,6 +9060,68 @@
             }
         })();
 
+        // === ONLINE GAME BACKUP (for disconnect recovery) ===
+        const ONLINE_BACKUP_KEY = 'inara-online-backup';
+        
+        function saveOnlineGameBackup() {
+            try {
+                const backup = {
+                    format: 'inara-game',
+                    version: 1,
+                    timestamp: Date.now(),
+                    localPlayer: localPlayer,
+                    localPlayerName: localPlayerName,
+                    remotePlayerName: remotePlayerName,
+                    initialState: analysisData.initialState,
+                    moves: analysisData.moves,
+                    game: {
+                        date: new Date().toISOString().split('T')[0],
+                        totalMoves: analysisData.moves.length
+                    }
+                };
+                localStorage.setItem(ONLINE_BACKUP_KEY, JSON.stringify(backup));
+            } catch (e) {
+                console.warn('Could not save online game backup:', e);
+            }
+        }
+        
+        function getOnlineGameBackup() {
+            try {
+                const data = localStorage.getItem(ONLINE_BACKUP_KEY);
+                if (!data) return null;
+                
+                const backup = JSON.parse(data);
+                
+                // Validate it's a proper backup
+                if (backup.format !== 'inara-game' || !backup.initialState || !backup.moves) {
+                    return null;
+                }
+                
+                // Validate the data
+                if (!validateGameData(backup)) {
+                    clearOnlineGameBackup();
+                    return null;
+                }
+                
+                return backup;
+            } catch (e) {
+                console.warn('Could not load online game backup:', e);
+                return null;
+            }
+        }
+        
+        function clearOnlineGameBackup() {
+            try {
+                localStorage.removeItem(ONLINE_BACKUP_KEY);
+            } catch (e) {
+                console.warn('Could not clear online game backup:', e);
+            }
+        }
+        
+        function hasOnlineGameBackup() {
+            return getOnlineGameBackup() !== null;
+        }
+
         // === ONLINE MULTIPLAYER FUNCTIONS ===
         
         function generateRoomCode() {
@@ -9110,6 +9190,27 @@
             document.getElementById('onlineWaiting').style.display = 'none';
             document.getElementById('onlineJoining').style.display = 'none';
             document.getElementById('onlineError').style.display = 'none';
+            
+            // Check for saved game backup
+            const backup = getOnlineGameBackup();
+            const banner = document.getElementById('onlineBackupBanner');
+            if (backup) {
+                banner.style.display = 'block';
+                // Pre-fill names if available
+                if (backup.localPlayerName) {
+                    document.getElementById('playerNameInput').value = backup.localPlayerName;
+                }
+                if (backup.remotePlayerName) {
+                    document.getElementById('opponentNameInput').value = backup.remotePlayerName;
+                }
+                // Set side to what they were playing
+                if (backup.localPlayer) {
+                    setHostSide(backup.localPlayer);
+                    return; // Don't reset to random
+                }
+            } else {
+                banner.style.display = 'none';
+            }
             
             // Reset side selection to default
             setHostSide('random');
@@ -9986,6 +10087,65 @@
             document.getElementById('disconnectModal').classList.remove('show');
             // Return to welcome screen
             document.getElementById('welcomeModal').classList.add('show');
+        }
+        
+        function resumeFromDisconnect() {
+            // Close disconnect modal
+            document.getElementById('disconnectModal').classList.remove('show');
+            // Go directly to online setup with backup ready
+            showOnlineModalWithBackup();
+        }
+        
+        function showOnlineModalWithBackup() {
+            const backup = getOnlineGameBackup();
+            if (!backup) {
+                // No backup, just show normal online modal
+                setGameMode('online');
+                return;
+            }
+            
+            // Store backup for use
+            loadedGameForOnline = backup;
+            
+            // Restore player names if available
+            if (backup.localPlayerName) {
+                document.getElementById('playerNameInput').value = backup.localPlayerName;
+            }
+            if (backup.remotePlayerName) {
+                document.getElementById('opponentNameInput').value = backup.remotePlayerName;
+            }
+            
+            // Set side to what they were playing
+            if (backup.localPlayer) {
+                setHostSide(backup.localPlayer);
+            }
+            
+            // Show the online modal
+            document.getElementById('newGameModal').classList.add('show');
+            setGameMode('online');
+        }
+        
+        function resumeFromBackup() {
+            const backup = getOnlineGameBackup();
+            if (!backup) {
+                alert('No saved game found.');
+                return;
+            }
+            
+            // Store backup for use
+            loadedGameForOnline = backup;
+            
+            // Create the game with loaded state
+            createOnlineGameWithLoadedState();
+        }
+        
+        function discardBackup() {
+            clearOnlineGameBackup();
+            document.getElementById('onlineBackupBanner').style.display = 'none';
+            // Reset inputs
+            document.getElementById('playerNameInput').value = '';
+            document.getElementById('opponentNameInput').value = '';
+            setHostSide('random');
         }
         
         // Check if it's the local player's turn in online mode
