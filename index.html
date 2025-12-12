@@ -848,19 +848,16 @@
             left: 3px;
         }
 
-        /* When flipped, coords rotate with square, so reposition to opposite corners */
+        /* When flipped, coords need to stay in same visual position relative to board edges */
+        /* After 180° board rotation + 180° square counter-rotation, top-left becomes bottom-right */
         .board.flipped .square .coord-file {
-            bottom: auto;
-            right: auto;
-            top: 2px;
-            left: 3px;
+            bottom: 2px;
+            right: 3px;
         }
 
         .board.flipped .square .coord-rank {
-            top: auto;
-            left: auto;
-            bottom: 2px;
-            right: 3px;
+            top: 2px;
+            left: 3px;
         }
 
         .square.light .coord {
@@ -2936,6 +2933,8 @@
         <div class="modal-content" style="max-width: 360px; text-align: center;">
             <h2 style="font-size: 1.5rem; margin-bottom: 20px;">New Game</h2>
             
+            <button class="btn" onclick="startGameWithTime()" style="width: 100%; margin-bottom: 20px;">Start Game</button>
+            
             <!-- CPU Opponent Toggle -->
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 10px; color: var(--silver);">Opponent</label>
@@ -2989,7 +2988,6 @@
                     <span>+30s</span>
                 </div>
             </div>
-            <button class="btn" onclick="startGameWithTime()" style="width: 100%;">Start Game</button>
         </div>
     </div>
 
@@ -3014,6 +3012,10 @@
                     <button class="btn" onclick="resumeFromBackup()" style="width: 100%; background: var(--gold); font-size: 0.9rem;">Resume Saved Game</button>
                     <button class="btn" onclick="discardBackup()" style="width: 100%; margin-top: 8px; background: transparent; color: var(--silver); font-size: 0.8rem; padding: 6px;">Discard</button>
                 </div>
+                
+                <button class="btn" onclick="createOnlineGame()" style="width: 100%; margin-bottom: 20px;">
+                    Create Game
+                </button>
                 
                 <!-- Player Names Input -->
                 <div style="margin-bottom: 20px;">
@@ -3072,10 +3074,7 @@
                         </div>
                     </div>
                     
-                    <button class="btn" onclick="createOnlineGame()" style="width: 100%;">
-                        Create Game
-                    </button>
-                    <button class="btn" onclick="document.getElementById('onlineLoadInput').click();" style="width: 100%; margin-top: 8px; background: var(--slate); color: var(--pearl);">
+                    <button class="btn" onclick="document.getElementById('onlineLoadInput').click();" style="width: 100%; background: var(--slate); color: var(--pearl);">
                         Load Game
                     </button>
                     <input type="file" id="onlineLoadInput" accept=".json" style="display:none" onchange="loadOnlineGameFromFile(event)">
