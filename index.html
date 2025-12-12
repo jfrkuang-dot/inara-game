@@ -2249,7 +2249,7 @@
                 <button class="flip-btn" onclick="toggleBoardFlip()" title="Flip board">⇅</button>
                 <div class="menu-dropdown" id="menuDropdown">
                     <button onclick="showNewGameModal(); closeMenu();">New Game</button>
-                    <button onclick="document.getElementById('menuImportInput').click(); closeMenu();">Load Game</button>
+                    <button onclick="document.getElementById('menuImportInput').click(); closeMenu();">Review Game</button>
                     <input type="file" id="menuImportInput" accept=".json" style="display:none" onchange="importGameJSON(event)">
                     <button onclick="toggleRules(); closeMenu();">Rules</button>
                     <button onclick="openTutorial(); closeMenu();">Tutorial</button>
@@ -2902,6 +2902,18 @@
         </div>
     </div>
 
+    <!-- Disconnect Modal -->
+    <div class="modal" id="disconnectModal">
+        <div class="modal-content" style="max-width: 380px; text-align: center;">
+            <h2 style="font-size: 1.5rem; margin-bottom: 15px;">Opponent Disconnected</h2>
+            <p style="color: var(--silver); margin-bottom: 20px;">You can resume this game later by loading the exported file in Online → Load Game.</p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="btn" onclick="exportAndCloseDisconnect()" style="background: var(--gold);">Export Game</button>
+                <button class="btn" onclick="closeDisconnectModal()" style="background: var(--slate); color: var(--pearl);">Return to Menu</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Welcome Screen Modal -->
     <div class="modal show" id="welcomeModal">
         <div class="modal-content" style="max-width: 360px; text-align: center;">
@@ -2911,7 +2923,7 @@
                 <button class="btn" onclick="closeWelcome(); showNewGameModal();" style="padding: 14px; font-size: 1.1rem;">New Game</button>
                 <button class="btn" onclick="closeWelcome(); openTutorial();" style="padding: 14px; font-size: 1.1rem; background: var(--slate); color: var(--pearl);">Tutorial</button>
                 <button class="btn" onclick="closeWelcome(); toggleRules();" style="padding: 14px; font-size: 1.1rem; background: var(--slate); color: var(--pearl);">Rules</button>
-                <button class="btn" onclick="closeWelcome(); document.getElementById('welcomeImportInput').click();" style="padding: 14px; font-size: 1.1rem; background: var(--slate); color: var(--pearl);">Load Game</button>
+                <button class="btn" onclick="closeWelcome(); document.getElementById('welcomeImportInput').click();" style="padding: 14px; font-size: 1.1rem; background: var(--slate); color: var(--pearl);">Review Game</button>
                 <input type="file" id="welcomeImportInput" accept=".json" style="display:none" onchange="importGameJSON(event)">
                 <button class="btn" onclick="closeWelcome(); showAbout();" style="padding: 14px; font-size: 1.1rem; background: var(--slate); color: var(--pearl);">About</button>
             </div>
@@ -3055,6 +3067,10 @@
                     <button class="btn" onclick="createOnlineGame()" style="width: 100%;">
                         Create Game
                     </button>
+                    <button class="btn" onclick="document.getElementById('onlineLoadInput').click();" style="width: 100%; margin-top: 8px; background: var(--slate); color: var(--pearl);">
+                        Load Game
+                    </button>
+                    <input type="file" id="onlineLoadInput" accept=".json" style="display:none" onchange="loadOnlineGameFromFile(event)">
                 </div>
                 
                 <div style="border-top: 1px solid var(--slate); padding-top: 20px;">
@@ -3182,7 +3198,7 @@
                 `,
                 full: `
                 <h3>概述</h3>
-                <p>Inara是一场技巧定位和适应不断变化资源的较量。游戏开始后没有随机因素，也没有隐藏信息。</p>
+                <p>换影棋是一场技巧定位和适应不断变化资源的较量。游戏开始后没有随机因素，也没有隐藏信息。</p>
 
                 <h3>游戏材料</h3>
                 <ul>
@@ -3273,7 +3289,7 @@
                     // Capsule 1: Objective
                     `<h2>目标</h2>
                     <div class="tutorial-body">
-                        <p>Inara是一款回合制双人抽象策略游戏。</p>
+                        <p>换影棋是一款回合制双人抽象策略游戏。</p>
                         <p><strong>你的目标：</strong>用你的<em>魔像</em>在对手的底线完成突破以获胜。</p>
                     </div>`,
                     
@@ -9142,6 +9158,298 @@
             peer.on('connection', handleIncomingConnection);
         }
         
+        let loadedGameForOnline = null; // Holds loaded game state for online resume
+        
+        function loadOnlineGameFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // Validate format
+                    if (data.format !== 'inara-game') {
+                        alert('Invalid file format. Please select an Inara game file.');
+                        return;
+                    }
+                    
+                    if (!data.initialState || !data.moves) {
+                        alert('Invalid game file. Missing required data.');
+                        return;
+                    }
+                    
+                    // Store the loaded data
+                    loadedGameForOnline = data;
+                    
+                    // Create online game with loaded state
+                    createOnlineGameWithLoadedState();
+                    
+                } catch (err) {
+                    console.error('Load error:', err);
+                    alert('Failed to load game file. The file may be corrupted.');
+                }
+            };
+            
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+        
+        function createOnlineGameWithLoadedState() {
+            if (!loadedGameForOnline) return;
+            
+            isHost = true;
+            
+            // Determine host's side from selection
+            if (selectedHostSide === 'random') {
+                localPlayer = Math.random() < 0.5 ? 'dark' : 'light';
+            } else {
+                localPlayer = selectedHostSide;
+            }
+            
+            const roomCode = generateRoomCode();
+            
+            if (peer) {
+                peer.destroy();
+            }
+            
+            peer = new Peer('inara-' + roomCode);
+            
+            peer.on('open', () => {
+                console.log('Room created with loaded game:', roomCode);
+                showOnlineWaiting(roomCode);
+            });
+            
+            peer.on('disconnected', () => {
+                if (peer && !peer.destroyed) {
+                    peer.reconnect();
+                }
+            });
+            
+            peer.on('error', (err) => {
+                console.error('Error creating room:', err);
+                if (err.type === 'unavailable-id') {
+                    createOnlineGameWithLoadedState();
+                } else {
+                    showOnlineError('Could not create game. Please try again.');
+                }
+            });
+            
+            peer.on('connection', handleIncomingConnectionWithLoadedGame);
+        }
+        
+        function handleIncomingConnectionWithLoadedGame(connection) {
+            console.log('Opponent connected! Starting with loaded game.');
+            conn = connection;
+            setupConnectionHandlers();
+            
+            // Start online game with loaded state
+            startOnlineGameWithLoadedState();
+        }
+        
+        function startOnlineGameWithLoadedState() {
+            if (!loadedGameForOnline) return;
+            
+            document.getElementById('onlineModal').classList.remove('show');
+            
+            onlineMode = true;
+            cpuMode = false;
+            spectateMode = false;
+            
+            // Reconstruct the final position from the loaded game
+            const data = loadedGameForOnline;
+            
+            // Start with initial state
+            gameState = createInitialState();
+            
+            // Apply initial state
+            const init = data.initialState;
+            gameState.board = init.board.map(row => row.map(cell => cell ? {...cell} : null));
+            gameState.currentPlayer = init.currentPlayer;
+            gameState.darkHand = init.darkHand.map(g => ({...g}));
+            gameState.lightHand = init.lightHand.map(g => ({...g}));
+            gameState.darkResting = init.darkResting ? {...init.darkResting} : null;
+            gameState.lightResting = init.lightResting ? {...init.lightResting} : null;
+            gameState.darkSupply = {
+                shadows: init.darkSupply.shadows,
+                masks: init.darkSupply.masks.map(m => ({...m}))
+            };
+            gameState.lightSupply = {
+                shadows: init.lightSupply.shadows,
+                masks: init.lightSupply.masks.map(m => ({...m}))
+            };
+            gameState.lightHasPlacedShadow = init.lightHasPlacedShadow;
+            gameState.darkLives = init.darkLives || 1;
+            gameState.lightLives = init.lightLives || 1;
+            gameState.noTimeLimit = true; // Online uses move timer instead
+            
+            // Replay all moves to get to final position
+            for (const moveData of data.moves) {
+                replayMoveOnState(moveData);
+            }
+            
+            // Set move timer from current selection
+            gameState.moveTimer = selectedMoveTimer;
+            gameState.moveTimeRemaining = selectedMoveTimer;
+            
+            // Setup analysis data for this game
+            analysisData = {
+                initialState: serializeGameState(),
+                moves: [],
+                currentMoveIndex: -1,
+                isAnalysisMode: false
+            };
+            
+            // Send state to opponent
+            const joinerSide = localPlayer === 'dark' ? 'light' : 'dark';
+            sendOnlineMessage({
+                type: 'gameStart',
+                state: serializeGameState(),
+                yourSide: joinerSide,
+                hostName: localPlayerName,
+                joinerName: remotePlayerName,
+                hostSide: localPlayer,
+                moveTimer: selectedMoveTimer,
+                resumedGame: true,
+                moveNumber: data.moves.length
+            });
+            
+            updatePlayerNames();
+            setBoardFlip(localPlayer === 'light');
+            renderGame();
+            
+            // Start move timer if applicable
+            if (selectedMoveTimer > 0) {
+                resetMoveTimer();
+            }
+            
+            // Clear loaded game
+            loadedGameForOnline = null;
+            
+            // Notify host
+            const moveNum = data.moves.length;
+            console.log(`Resumed game at move ${moveNum}. ${gameState.currentPlayer}'s turn.`);
+        }
+        
+        function replayMoveOnState(moveData) {
+            // Simplified replay that applies move to current gameState
+            if (moveData.type === 'movement') {
+                const piece = gameState.board[moveData.from.row][moveData.from.col];
+                if (!piece) return;
+                
+                // Move piece
+                gameState.board[moveData.to.row][moveData.to.col] = piece;
+                gameState.board[moveData.from.row][moveData.from.col] = null;
+                
+                // Place shadow if indicated
+                if (moveData.shadowPlaced) {
+                    gameState.board[moveData.shadowPlaced.row][moveData.shadowPlaced.col] = {
+                        type: 'shadow',
+                        player: piece.player
+                    };
+                    const supply = piece.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                    supply.shadows--;
+                }
+                
+                // Handle captures
+                if (moveData.captures) {
+                    for (const cap of moveData.captures) {
+                        const captured = gameState.board[cap.row][cap.col];
+                        if (captured) {
+                            gameState.board[cap.row][cap.col] = null;
+                            // Return resources to owner
+                            const ownerSupply = captured.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                            if (captured.type === 'shadow') {
+                                ownerSupply.shadows++;
+                            } else if (captured.type === 'golem') {
+                                ownerSupply.shadows++;
+                                ownerSupply.masks.push({ shape: captured.shape, color: captured.color });
+                            }
+                        }
+                    }
+                }
+                
+                // Handle breakthrough/dismantling
+                if (moveData.breakthrough && moveData.dismantled) {
+                    gameState.board[moveData.to.row][moveData.to.col] = null;
+                    const supply = piece.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                    supply.shadows++;
+                    supply.masks.push({ shape: moveData.dismantled.shape, color: moveData.dismantled.color });
+                    
+                    // Reduce opponent lives
+                    if (piece.player === 'dark') {
+                        gameState.lightLives--;
+                    } else {
+                        gameState.darkLives--;
+                    }
+                }
+                
+                // Handle glyph exchange
+                const hand = gameState.currentPlayer === 'dark' ? gameState.darkHand : gameState.lightHand;
+                const glyphIndex = hand.findIndex(g => 
+                    g.type === moveData.glyphUsed.type && g.value === moveData.glyphUsed.value
+                );
+                if (glyphIndex !== -1) {
+                    const usedGlyph = hand.splice(glyphIndex, 1)[0];
+                    const resting = gameState.currentPlayer === 'dark' ? gameState.darkResting : gameState.lightResting;
+                    if (resting) hand.push(resting);
+                    
+                    if (gameState.currentPlayer === 'dark') {
+                        gameState.lightResting = usedGlyph;
+                        gameState.darkResting = null;
+                    } else {
+                        gameState.darkResting = usedGlyph;
+                        gameState.lightResting = null;
+                    }
+                }
+                
+                // Track shadow placement for lock
+                if (moveData.shadowPlaced && piece.player === 'light') {
+                    gameState.lightHasPlacedShadow = true;
+                }
+                
+            } else if (moveData.type === 'reactivation') {
+                // Handle reactivation
+                const supply = gameState.currentPlayer === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                const maskIndex = supply.masks.findIndex(m => 
+                    m.shape === moveData.mask.shape && m.color === moveData.mask.color
+                );
+                if (maskIndex !== -1) {
+                    const mask = supply.masks.splice(maskIndex, 1)[0];
+                    supply.shadows--;
+                    gameState.board[moveData.position.row][moveData.position.col] = {
+                        type: 'golem',
+                        player: gameState.currentPlayer,
+                        shape: mask.shape,
+                        color: mask.color
+                    };
+                }
+                
+                // Handle glyph exchange for reactivation
+                const hand = gameState.currentPlayer === 'dark' ? gameState.darkHand : gameState.lightHand;
+                const glyphIndex = hand.findIndex(g => 
+                    g.type === moveData.glyphUsed.type && g.value === moveData.glyphUsed.value
+                );
+                if (glyphIndex !== -1) {
+                    const usedGlyph = hand.splice(glyphIndex, 1)[0];
+                    const resting = gameState.currentPlayer === 'dark' ? gameState.darkResting : gameState.lightResting;
+                    if (resting) hand.push(resting);
+                    
+                    if (gameState.currentPlayer === 'dark') {
+                        gameState.lightResting = usedGlyph;
+                        gameState.darkResting = null;
+                    } else {
+                        gameState.darkResting = usedGlyph;
+                        gameState.lightResting = null;
+                    }
+                }
+            }
+            
+            // Switch player
+            gameState.currentPlayer = gameState.currentPlayer === 'dark' ? 'light' : 'dark';
+        }
+        
         function handleIncomingConnection(connection) {
             console.log('Opponent connected!');
             conn = connection;
@@ -9238,7 +9546,7 @@
             conn.on('close', () => {
                 console.log('Connection closed');
                 if (onlineMode && !gameState.gameOver) {
-                    alert('Opponent disconnected.');
+                    showDisconnectModal();
                     onlineMode = false;
                 }
             });
@@ -9510,6 +9818,25 @@
             document.getElementById('drawOfferMessage').textContent = 
                 `${capitalize(opponent)} offers a draw. Do you accept?`;
             document.getElementById('drawOfferModal').classList.add('show');
+        }
+        
+        function showDisconnectModal() {
+            document.getElementById('disconnectModal').classList.add('show');
+        }
+        
+        function closeDisconnectModal() {
+            document.getElementById('disconnectModal').classList.remove('show');
+            // Return to welcome screen
+            document.getElementById('welcomeModal').classList.add('show');
+        }
+        
+        function exportAndCloseDisconnect() {
+            // Export the game
+            exportGameJSON();
+            // Close disconnect modal
+            document.getElementById('disconnectModal').classList.remove('show');
+            // Return to welcome screen
+            document.getElementById('welcomeModal').classList.add('show');
         }
         
         // Check if it's the local player's turn in online mode
