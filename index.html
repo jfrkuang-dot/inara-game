@@ -3045,7 +3045,7 @@
                             <span class="move-timer-help" onclick="showMoveTimerHelp()" style="cursor: pointer; width: 16px; height: 16px; border-radius: 50%; background: var(--slate); color: var(--silver); font-size: 0.7rem; display: inline-flex; align-items: center; justify-content: center;">?</span>
                         </label>
                         <div class="time-display" id="moveTimerDisplay" style="font-size: 1.1rem; margin-bottom: 8px;">∞</div>
-                        <input type="range" class="time-slider" id="moveTimerSlider" min="0" max="6" value="0" oninput="updateMoveTimerDisplay()">
+                        <input type="range" class="time-slider" id="moveTimerSlider" min="0" max="11" value="0" oninput="updateMoveTimerDisplay()">
                         <div class="time-labels">
                             <span>∞</span>
                             <span>60s</span>
@@ -8969,7 +8969,7 @@
         
         let selectedOnlineLives = 0; // Default sudden death for online
         let selectedMoveTimer = 0; // 0 = no limit, otherwise seconds per move
-        const moveTimerValues = [0, 10, 20, 30, 40, 50, 60]; // Slider positions
+        const moveTimerValues = [0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60]; // Slider positions
         
         function setOnlineLives(lives) {
             selectedOnlineLives = lives;
