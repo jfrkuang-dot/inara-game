@@ -2705,15 +2705,16 @@
                     </div>
                 </div>
 
-                <!-- Capsule 9: Winning (INTERACTIVE) -->
+                <!-- Capsule 9: Completing a Run (INTERACTIVE) -->
                 <div class="tutorial-capsule" data-capsule="9" data-interactive="true">
-                    <h2>Winning</h2>
+                    <h2>Completing a Run</h2>
                     <div class="tutorial-body">
-                        <p><strong>Dark</strong> wins by reaching row 1 (Light's back row).</p>
-                        <p><strong>Light</strong> wins by reaching row 8 (Dark's back row).</p>
-                        <p>The first player to land a golem on their opponent's back row wins immediately!</p>
+                        <p><strong>Dark</strong> completes a run by reaching row 1 (Light's back row).</p>
+                        <p><strong>Light</strong> completes a run by reaching row 8 (Dark's back row).</p>
+                        <p>In <strong>Sudden Death</strong>, the first player to complete a run wins immediately!</p>
+                        <p>With <strong>multiple lives</strong>, the golem that completes the run first makes any captures at the destination square, then returns to your supply as a shadow and a mask.</p>
                         <div class="tutorial-prompt">
-                            <p>Reach the top row to win!</p>
+                            <p>Reach the top row to complete a run!</p>
                             <ul class="tutorial-checklist">
                                 <li data-objective="reach-goal">☐ Move a golem to row 1</li>
                             </ul>
@@ -2855,9 +2856,25 @@
     <div class="modal" id="aboutModal">
         <div class="modal-content" style="max-width: 360px; text-align: center;">
             <span class="close-modal" onclick="closeAbout()">&times;</span>
-            <h2 style="font-size: 2rem; margin-bottom: 25px; font-family: 'Philosopher', sans-serif;">About</h2>
-            <p style="color: var(--pearl); line-height: 1.7; margin-bottom: 20px;">I've been working on this game with support from friends and family since 2017. Most of it came together within a year, some of it took longer to draw out. I hope others find as much joy and connection in playing it as I have found in making it.</p>
-            <p style="color: var(--silver); font-style: italic;">James Kuang<br>2025</p>
+            
+            <!-- About Language Selection (shown first) -->
+            <div id="aboutLangSelect" class="tutorial-lang-select">
+                <h2 style="font-size: 2rem; margin-bottom: 20px; font-family: 'Philosopher', sans-serif;">About</h2>
+                <p style="color: var(--silver); margin-bottom: 20px;">Select Language</p>
+                <div style="display: flex; flex-direction: column; gap: 10px; max-width: 200px; margin: 0 auto;">
+                    <button class="btn" onclick="showAboutWithLang('en')" style="width: 100%;">English</button>
+                    <button class="btn" onclick="showAboutWithLang('zh')" style="width: 100%; background: var(--slate); color: var(--pearl);">中文</button>
+                    <button class="btn" onclick="showAboutWithLang('es')" style="width: 100%; background: var(--slate); color: var(--pearl);">Español</button>
+                </div>
+            </div>
+            
+            <!-- About Content (hidden until language selected) -->
+            <div id="aboutContent" style="display: none;">
+                <h2 style="font-size: 2rem; margin-bottom: 25px; font-family: 'Philosopher', sans-serif;">About</h2>
+                <p id="aboutText" style="color: var(--pearl); line-height: 1.7; margin-bottom: 20px;">I've been working on this game with support from friends and family since 2017. Most of it came together within a year, some of it took longer to draw out. I hope others find as much joy and connection in playing it as I have found in making it.</p>
+                <p style="color: var(--silver); font-style: italic; margin-bottom: 20px;">James Kuang<br>2025</p>
+                <p id="aboutContact" style="color: var(--silver); font-size: 0.9rem;">If you have thoughts about the game, feel free to drop me a line!<br><a href="mailto:jfkuang@proton.me" style="color: var(--gold);">jfkuang@proton.me</a></p>
+            </div>
         </div>
     </div>
 
@@ -2899,6 +2916,7 @@
                 <button class="btn" onclick="closeWelcome(); toggleRules();" style="padding: 14px; font-size: 1.1rem; background: var(--slate); color: var(--pearl);">Rules</button>
                 <button class="btn" onclick="closeWelcome(); document.getElementById('welcomeImportInput').click();" style="padding: 14px; font-size: 1.1rem; background: var(--slate); color: var(--pearl);">Load Game</button>
                 <input type="file" id="welcomeImportInput" accept=".json" style="display:none" onchange="importGameJSON(event)">
+                <button class="btn" onclick="closeWelcome(); showAbout();" style="padding: 14px; font-size: 1.1rem; background: var(--slate); color: var(--pearl);">About</button>
             </div>
         </div>
     </div>
@@ -3343,14 +3361,15 @@
                         </div>
                     </div>`,
                     
-                    // Capsule 9: Winning (INTERACTIVE)
-                    `<h2>获胜</h2>
+                    // Capsule 9: Completing a Run (INTERACTIVE)
+                    `<h2>完成突破</h2>
                     <div class="tutorial-body">
-                        <p><strong>暗方</strong>通过到达第1行（光方底线）获胜。</p>
-                        <p><strong>光方</strong>通过到达第8行（暗方底线）获胜。</p>
-                        <p>第一个将魔像移到对手底线的玩家立即获胜！</p>
+                        <p><strong>暗方</strong>通过到达第1行（光方底线）完成突破。</p>
+                        <p><strong>光方</strong>通过到达第8行（暗方底线）完成突破。</p>
+                        <p>在<strong>突然死亡</strong>模式中，第一个完成突破的玩家立即获胜！</p>
+                        <p>在<strong>多生命</strong>模式中，完成突破的魔像首先在目标格进行捕获，然后作为影子和面具返回你的补给。</p>
                         <div class="tutorial-prompt">
-                            <p>到达顶行获胜！</p>
+                            <p>到达顶行完成突破！</p>
                             <ul class="tutorial-checklist">
                                 <li data-objective="reach-goal">☐ 将魔像移到第1行</li>
                             </ul>
@@ -3705,14 +3724,15 @@
                         </div>
                     </div>`,
                     
-                    // Capsule 9: Winning (INTERACTIVE)
-                    `<h2>Ganar</h2>
+                    // Capsule 9: Completing a Run (INTERACTIVE)
+                    `<h2>Completar una Carrera</h2>
                     <div class="tutorial-body">
-                        <p><strong>Oscuro</strong> gana llegando a la fila 1 (fila trasera de Claro).</p>
-                        <p><strong>Claro</strong> gana llegando a la fila 8 (fila trasera de Oscuro).</p>
-                        <p>¡El primer jugador en colocar un golem en la fila trasera de su oponente gana inmediatamente!</p>
+                        <p><strong>Oscuro</strong> completa una carrera llegando a la fila 1 (fila trasera de Claro).</p>
+                        <p><strong>Claro</strong> completa una carrera llegando a la fila 8 (fila trasera de Oscuro).</p>
+                        <p>En <strong>Muerte Súbita</strong>, ¡el primer jugador en completar una carrera gana inmediatamente!</p>
+                        <p>Con <strong>múltiples vidas</strong>, el golem que completa la carrera primero realiza cualquier captura en la casilla de destino, luego regresa a tu suministro como sombra y máscara.</p>
                         <div class="tutorial-prompt">
-                            <p>¡Alcanza la fila superior para ganar!</p>
+                            <p>¡Alcanza la fila superior para completar una carrera!</p>
                             <ul class="tutorial-checklist">
                                 <li data-objective="reach-goal">☐ Mueve un golem a la fila 1</li>
                             </ul>
@@ -7236,12 +7256,41 @@
             document.getElementById('rulesContent').style.display = 'block';
         }
         
+        const aboutTranslations = {
+            en: {
+                text: "I've been working on this game with support from friends and family since 2017. Most of it came together within a year, some of it took longer to draw out. I hope others find as much joy and connection in playing it as I have found in making it.",
+                contact: 'If you have thoughts about the game, feel free to drop me a line!<br><a href="mailto:jfkuang@proton.me" style="color: var(--gold);">jfkuang@proton.me</a>'
+            },
+            zh: {
+                text: "自2017年以来，我一直在朋友和家人的支持下开发这款游戏。大部分内容在一年内完成，有些则花了更长时间才逐渐成形。我希望其他人在游戏中也能找到我在创作过程中所感受到的快乐与连结。",
+                contact: '如果您对游戏有任何想法，欢迎联系我！<br><a href="mailto:jfkuang@proton.me" style="color: var(--gold);">jfkuang@proton.me</a>'
+            },
+            es: {
+                text: "He estado trabajando en este juego con el apoyo de amigos y familiares desde 2017. La mayor parte se desarrolló en un año, algunas cosas tardaron más en tomar forma. Espero que otros encuentren tanta alegría y conexión al jugarlo como yo he encontrado al crearlo.",
+                contact: '¡Si tienes comentarios sobre el juego, no dudes en escribirme!<br><a href="mailto:jfkuang@proton.me" style="color: var(--gold);">jfkuang@proton.me</a>'
+            }
+        };
+        
         function showAbout() {
+            // Show language selection first
+            document.getElementById('aboutLangSelect').style.display = 'block';
+            document.getElementById('aboutContent').style.display = 'none';
             document.getElementById('aboutModal').classList.add('show');
+        }
+        
+        function showAboutWithLang(lang) {
+            const trans = aboutTranslations[lang] || aboutTranslations.en;
+            document.getElementById('aboutText').innerHTML = trans.text;
+            document.getElementById('aboutContact').innerHTML = trans.contact;
+            document.getElementById('aboutLangSelect').style.display = 'none';
+            document.getElementById('aboutContent').style.display = 'block';
         }
         
         function closeAbout() {
             document.getElementById('aboutModal').classList.remove('show');
+            // Reset to language selection for next open
+            document.getElementById('aboutLangSelect').style.display = 'block';
+            document.getElementById('aboutContent').style.display = 'none';
         }
 
         // Rules tab switching
