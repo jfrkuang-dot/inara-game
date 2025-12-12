@@ -202,6 +202,33 @@
             border-top: 1px solid var(--slate);
             margin: 8px 0;
         }
+        
+        .lang-btn {
+            padding: 6px 12px;
+            background: var(--slate);
+            border: 1px solid var(--silver);
+            border-radius: 4px;
+            color: var(--pearl);
+            font-family: inherit;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .lang-btn:hover {
+            background: var(--accent);
+        }
+        
+        .lang-btn.active {
+            background: var(--gold);
+            color: var(--onyx);
+            border-color: var(--gold);
+        }
+        
+        .tutorial-lang-select {
+            text-align: center;
+            padding: 40px 20px;
+        }
 
         /* Copyright Footer */
         .copyright {
@@ -2362,40 +2389,61 @@
     <div class="modal" id="rulesModal">
         <div class="modal-content rules-modal-content">
             <span class="close-modal" onclick="toggleRules()">&times;</span>
-            <h2>How to Play Inara</h2>
-
-            <!-- Rules Tabs -->
-            <div class="rules-tabs">
-                <button class="rules-tab active" data-tab="quick">Quick Reference</button>
-                <button class="rules-tab" data-tab="full">Full Rules</button>
+            
+            <!-- Rules Language Selection (shown first) -->
+            <div id="rulesLangSelect" class="tutorial-lang-select">
+                <h2 style="font-family: 'Philosopher', sans-serif; margin-bottom: 20px;">Rules</h2>
+                <p style="color: var(--silver); margin-bottom: 20px;">Select Language</p>
+                <div style="display: flex; flex-direction: column; gap: 10px; max-width: 200px; margin: 0 auto;">
+                    <button class="btn" onclick="showRulesWithLang('en')" style="width: 100%;">English</button>
+                    <button class="btn" onclick="showRulesWithLang('zh')" style="width: 100%; background: var(--slate); color: var(--pearl);">中文</button>
+                    <button class="btn" onclick="showRulesWithLang('es')" style="width: 100%; background: var(--slate); color: var(--pearl);">Español</button>
+                </div>
             </div>
+            
+            <!-- Rules Content (hidden until language selected) -->
+            <div id="rulesContent" style="display: none;">
+                <h2>How to Play Inara</h2>
 
-            <!-- Quick Reference Tab -->
-            <div class="rules-tab-content active" id="rules-quick">
-                <h3>Goal</h3>
-                <p>Race your golems across the board. Be the first to move one into your opponent's back row!</p>
+                <!-- Rules Tabs -->
+                <div class="rules-tabs">
+                    <button class="rules-tab active" data-tab="quick">Quick Reference</button>
+                    <button class="rules-tab" data-tab="full">Full Rules</button>
+                </div>
 
-                <h3>On Your Turn</h3>
-                <ul>
-                    <li>Select a glyph from your hand</li>
-                    <li>Move a golem matching the glyph's shape or color</li>
-                    <li>If using the Mirror glyph, match the resting glyph instead</li>
-                    <li>The used glyph becomes your opponent's resting glyph</li>
-                    <li>Pick up your resting glyph to your hand</li>
-                </ul>
+                <!-- Quick Reference Tab -->
+                <div class="rules-tab-content active" id="rules-quick">
+                    <h3>Objective</h3>
+                    <p><strong>Sudden Death:</strong> Race your golems across the board and be the first to move one into a square on your opponent's home row to win!</p>
+                    <p><strong>Extra Lives:</strong> Your opponent loses a life every time you make one of these runs. Bring their number of lives down to zero to win!</p>
 
-                <h3>Movement</h3>
-                <ul>
-                    <li><strong>Step:</strong> Move 2 spaces orthogonally (N/S/E/W) if the middle square is empty, OR 1 space diagonally</li>
-                    <li><strong>Jump:</strong> Jump diagonally over your own pieces to the next empty square</li>
-                    <li>Chain multiple jumps in one turn!</li>
-                </ul>
+                    <h3>On Your Turn</h3>
+                    <ul>
+                        <li>Select a glyph from your hand</li>
+                        <li>Move a golem matching the glyph's shape or color</li>
+                        <li>If using the Mirror glyph, match the resting glyph instead</li>
+                        <li>The used glyph becomes your opponent's resting glyph</li>
+                        <li>Pick up your resting glyph to your hand</li>
+                    </ul>
+
+                    <h3>Movement</h3>
+                    <ul>
+                        <li><strong>Step:</strong> Move 2 spaces orthogonally (N/S/E/W) if the middle square is empty, OR 1 space diagonally</li>
+                        <li><strong>Jump:</strong> Jump diagonally over your own pieces to the next empty square</li>
+                        <li>Chain multiple jumps in one turn!</li>
+                    </ul>
 
                 <h3>Capturing</h3>
                 <ul>
                     <li>Surround an opponent's piece on opposite sides (horizontal or vertical)</li>
                     <li>Your moving piece must NOT match the target in shape or color</li>
                     <li>Captured golems return their mask and shadow to the owner's supply</li>
+                </ul>
+
+                <h3>Scoring (Extra Lives)</h3>
+                <ul>
+                    <li>Golems that complete a run can still make captures and leave shadows on that turn</li>
+                    <li>Completing a run returns that golem to your supply as a mask and a shadow</li>
                 </ul>
 
                 <h3>Shadows</h3>
@@ -2440,7 +2488,7 @@
                 </ol>
 
                 <h3>Goal</h3>
-                <p>Race your golems across the board and be the first to move one beyond the end of the board into your opponent's back row. Victory is yours if you succeed before they do!</p>
+                <p>Race your golems across the board and be the first to move one into your opponent's back row. Victory is yours if you succeed before they do!</p>
 
                 <h3>Turn Summary</h3>
                 <p>Players alternate turns. At the start of your turn, you have 3 glyphs in hand and 1 resting. You must take an action—you may not pass.</p>
@@ -2500,13 +2548,15 @@
                 </ul>
 
                 <h3>Ending the Game</h3>
-                <p>The game ends immediately when one player moves a golem into their opponent's first row. That player wins!</p>
+                <p><strong>Sudden Death:</strong> The game ends immediately when one player moves a golem into their opponent's first row. That player wins!</p>
+                <p><strong>Extra Lives:</strong> Your opponent loses a life every time you complete a run to their back row. The golem that scores can still make captures and leave a shadow on that turn. Completing a run also returns that golem to your supply as a mask and a shadow. Bring their number of lives down to zero to win!</p>
                 <p>If a player cannot take any valid action (no glyphs allow movement or reactivation), the game ends in a <strong>draw</strong>.</p>
 
                 <h3>Symbol Reference</h3>
                 <p><strong>Shapes:</strong> Ω Moon, Χ Sand, Λ Peak</p>
                 <p><strong>Colors:</strong> White, Orange, Blue</p>
                 <p><strong>Mirror:</strong> ◇ (copies the resting glyph)</p>
+            </div>
             </div>
         </div>
     </div>
@@ -2516,15 +2566,26 @@
         <div class="modal-content tutorial-content">
             <span class="close-modal" onclick="closeTutorial()">&times;</span>
             
-            <!-- Tutorial Navigation -->
-            <div class="tutorial-nav">
+            <!-- Tutorial Language Selection (shown first) -->
+            <div id="tutorialLangSelect" class="tutorial-lang-select">
+                <h2 style="font-family: 'Philosopher', sans-serif; margin-bottom: 20px;">Tutorial</h2>
+                <p style="color: var(--silver); margin-bottom: 20px;">Select Language</p>
+                <div style="display: flex; flex-direction: column; gap: 10px; max-width: 200px; margin: 0 auto;">
+                    <button class="btn" onclick="startTutorialWithLang('en')" style="width: 100%;">English</button>
+                    <button class="btn" onclick="startTutorialWithLang('zh')" style="width: 100%; background: var(--slate); color: var(--pearl);">中文</button>
+                    <button class="btn" onclick="startTutorialWithLang('es')" style="width: 100%; background: var(--slate); color: var(--pearl);">Español</button>
+                </div>
+            </div>
+            
+            <!-- Tutorial Navigation (hidden until language selected) -->
+            <div class="tutorial-nav" id="tutorialNav" style="display: none;">
                 <button class="tutorial-nav-btn" id="tutorialPrev" onclick="tutorialPrev()">◀ Back</button>
                 <span class="tutorial-progress" id="tutorialProgress">1 / 11</span>
                 <button class="tutorial-nav-btn" id="tutorialNext" onclick="tutorialNext()">Next ▶</button>
             </div>
 
-            <!-- Tutorial Capsules -->
-            <div class="tutorial-capsules" id="tutorialCapsules">
+            <!-- Tutorial Capsules (hidden until language selected) -->
+            <div class="tutorial-capsules" id="tutorialCapsules" style="display: none;">
                 
                 <!-- Capsule 1: Objective -->
                 <div class="tutorial-capsule" data-capsule="1">
@@ -2867,16 +2928,16 @@
             </div>
             
             <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 10px; color: var(--silver);">Extra Lives</label>
+                <label style="display: block; margin-bottom: 10px; color: var(--silver);">Lives</label>
                 <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 10px;">
                     <button class="btn lives-btn" id="lives1Btn" onclick="setLives(1)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
-                        <span style="color: #e74c3c;">♥</span>
-                    </button>
-                    <button class="btn lives-btn" id="lives2Btn" onclick="setLives(2)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
                         <span style="color: #e74c3c;">♥♥</span>
                     </button>
-                    <button class="btn lives-btn" id="lives3Btn" onclick="setLives(3)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
+                    <button class="btn lives-btn" id="lives2Btn" onclick="setLives(2)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
                         <span style="color: #e74c3c;">♥♥♥</span>
+                    </button>
+                    <button class="btn lives-btn" id="lives3Btn" onclick="setLives(3)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
+                        <span style="color: #e74c3c;">♥♥♥♥</span>
                     </button>
                 </div>
                 <button class="btn lives-btn" id="lives0Btn" onclick="setLives(0)" style="width: 100%; background: var(--gold);">Sudden Death</button>
@@ -2947,16 +3008,16 @@
                     
                     <!-- Lives selector for online -->
                     <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; color: var(--silver); font-size: 0.9rem;">Extra Lives</label>
+                        <label style="display: block; margin-bottom: 8px; color: var(--silver); font-size: 0.9rem;">Lives</label>
                         <div style="display: flex; gap: 6px; margin-bottom: 8px;">
                             <button class="btn online-lives-btn" id="onlineLives1Btn" onclick="setOnlineLives(1)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
-                                <span style="color: #e74c3c;">♥</span>
-                            </button>
-                            <button class="btn online-lives-btn" id="onlineLives2Btn" onclick="setOnlineLives(2)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
                                 <span style="color: #e74c3c;">♥♥</span>
                             </button>
-                            <button class="btn online-lives-btn" id="onlineLives3Btn" onclick="setOnlineLives(3)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
+                            <button class="btn online-lives-btn" id="onlineLives2Btn" onclick="setOnlineLives(2)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
                                 <span style="color: #e74c3c;">♥♥♥</span>
+                            </button>
+                            <button class="btn online-lives-btn" id="onlineLives3Btn" onclick="setOnlineLives(3)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
+                                <span style="color: #e74c3c;">♥♥♥♥</span>
                             </button>
                         </div>
                         <button class="btn online-lives-btn" id="onlineLives0Btn" onclick="setOnlineLives(0)" style="width: 100%; background: var(--gold); font-size: 0.85rem;">Sudden Death</button>
@@ -3027,6 +3088,786 @@
         const SHAPE_NAMES = { 'Ω': 'Moon', 'Χ': 'Sand', 'Λ': 'Peak' };
         const COLORS = ['white', 'orange', 'blue'];
         const MIRROR = '◇';
+        
+        // === LANGUAGE / TRANSLATION SYSTEM ===
+        let currentLanguage = 'en';
+        let originalRulesQuick = null;
+        let originalRulesFull = null;
+        let originalTutorialCapsules = null;
+        
+        const translations = {
+            zh: {
+                quick: `
+                <h3>目标</h3>
+                <p><strong>突然死亡：</strong>将你的魔像推进到对方的底线，先到者获胜！</p>
+                <p><strong>额外生命：</strong>每次成功突破都会让对手失去一条生命。将对手的生命值降为零即可获胜！</p>
+
+                <h3>回合行动</h3>
+                <ul>
+                    <li>从手牌中选择一个符文</li>
+                    <li>移动一个与符文形状或颜色匹配的魔像</li>
+                    <li>使用镜像符文时，改为匹配休息符文</li>
+                    <li>使用过的符文成为对手的休息符文</li>
+                    <li>将你的休息符文收回手中</li>
+                </ul>
+
+                <h3>移动方式</h3>
+                <ul>
+                    <li><strong>步行：</strong>如果中间格为空，可沿正交方向移动2格，或沿对角线移动1格</li>
+                    <li><strong>跳跃：</strong>沿对角线跳过己方棋子到达下一个空格</li>
+                    <li>可以在一回合内连续跳跃！</li>
+                </ul>
+
+                <h3>捕获</h3>
+                <ul>
+                    <li>从两侧（水平或垂直）包围对方棋子</li>
+                    <li>你移动的棋子不能与目标棋子的形状或颜色匹配</li>
+                    <li>被捕获的魔像将其面具和影子返还给所有者的补给</li>
+                </ul>
+
+                <h3>得分（额外生命模式）</h3>
+                <ul>
+                    <li>完成突破的魔像仍可在该回合进行捕获和放置影子</li>
+                    <li>完成突破后，该魔像作为面具和影子返回你的补给</li>
+                </ul>
+
+                <h3>影子</h3>
+                <ul>
+                    <li>移动后，你可以在离开的格子上放置一个影子（如果有的话）</li>
+                    <li>在光方放置影子之前，暗方不能放置影子</li>
+                    <li>影子可以帮助捕获和阻挡移动</li>
+                    <li>如果一个影子被捕获，你所有的影子都会被移除！</li>
+                </ul>
+
+                <h3>重新激活</h3>
+                <ul>
+                    <li>作为移动的替代，将补给中的面具放置在你的一个影子上</li>
+                    <li>面具必须同时匹配激活符文和休息符文</li>
+                    <li>使用镜像时，它会复制另一个符文的要求</li>
+                </ul>
+
+                <h3>符号参考</h3>
+                <p><strong>形状：</strong>Ω 月亮, Χ 沙, Λ 山峰</p>
+                <p><strong>颜色：</strong>白色, 橙色, 蓝色</p>
+                <p><strong>镜像：</strong>◇（复制休息符文）</p>
+                `,
+                full: `
+                <h3>概述</h3>
+                <p>Inara是一场技巧定位和适应不断变化资源的较量。游戏开始后没有随机因素，也没有隐藏信息。</p>
+
+                <h3>游戏材料</h3>
+                <ul>
+                    <li>一个8×8的棋盘，有明暗相间的格子</li>
+                    <li>7个符文标记：3种形状（月亮、沙、山峰）、3种颜色（白、橙、蓝）和1个镜像</li>
+                    <li>两组各9个魔像（光方和暗方），每个都有一个影子石和标记面具，显示九种独特的形状/颜色组合之一</li>
+                </ul>
+
+                <h3>游戏准备</h3>
+                <ol>
+                    <li>给每位玩家一组魔像。拥有暗色魔像的玩家先行。</li>
+                    <li>在你的前两排交替格子上随机放置8个魔像。光方魔像放在暗格上；暗方魔像放在亮格上。</li>
+                    <li>将第9个魔像放在一旁——拆解它，将面具和影子放入你的补给。</li>
+                    <li>随机分配符文：暗方获得3个，光方获得3个。剩余的符文成为暗方的休息符文。</li>
+                </ol>
+
+                <h3>目标</h3>
+                <p>将你的魔像推进到棋盘对面，成为第一个将魔像移入对手底线的玩家。先到者获胜！</p>
+
+                <h3>回合摘要</h3>
+                <p>玩家轮流行动。回合开始时，你手中有3个符文和1个休息符文。你必须采取行动——不能跳过回合。</p>
+                <ol>
+                    <li><strong>打出一个符文</strong>作为激活符文，然后：
+                        <ul>
+                            <li>移动一个与激活符文的形状或颜色匹配的魔像（如果镜像是激活符文，则匹配休息符文）</li>
+                            <li>或者重新激活一个魔像</li>
+                        </ul>
+                    </li>
+                    <li><strong>解决</strong>由移动或重新激活产生的捕获</li>
+                    <li>通过拿起休息符文<strong>结束回合</strong></li>
+                    <li>你使用的符文成为对手的新休息符文</li>
+                </ol>
+
+                <h3>如何移动</h3>
+                <p>每个格子最多只能容纳一个魔像或影子。</p>
+                <h4>步行</h4>
+                <ul>
+                    <li>沿正交方向移动2格（东/南/西/北）。这可能被中间格的对方棋子阻挡。</li>
+                    <li>或者沿对角线移动1格。这不会被附近的棋子阻碍。</li>
+                </ul>
+                <h4>跳跃</h4>
+                <ul>
+                    <li>沿对角线跳过己方棋子（包括影子）到达下一个空格</li>
+                    <li>你可以跳过一个或多个连续排列的棋子</li>
+                    <li>可以将多次跳跃连接成一次移动</li>
+                    <li>同一回合内不能跳回起始格</li>
+                </ul>
+
+                <h3>捕获棋子</h3>
+                <ul>
+                    <li>移动或重新激活后，你的魔像会捕获任何被移动的魔像和你的另一个棋子从两侧（水平或垂直）包围的对方棋子</li>
+                    <li>移动的棋子会捕获任何与它在形状、颜色或两者上<strong>不</strong>匹配的对方棋子。形状或颜色匹配的棋子是安全的。</li>
+                    <li>静止棋子的形状/颜色无关紧要——只有移动棋子的属性才重要</li>
+                    <li>被捕获的棋子被拆解并返还给其所有者的补给</li>
+                    <li>移入两个对方棋子之间<strong>不会</strong>导致你被捕获</li>
+                </ul>
+
+                <h3>影子</h3>
+                <ul>
+                    <li>当你的魔像移动时，你可以在离开的格子上放置一个影子（如果补给中有的话）</li>
+                    <li><strong>在光方放置影子之前，暗方不能放置影子</strong></li>
+                    <li>影子不能移动，但可以阻挡对方的步行</li>
+                    <li>你的魔像可以跳过自己的影子</li>
+                    <li>影子可以作为捕获的静止棋子</li>
+                    <li>影子可以被任何对方棋子捕获（不需要匹配）</li>
+                    <li><strong>影子捕获规则：</strong>如果你的一个影子被捕获，你所有剩余的影子立即被移除并返回补给</li>
+                </ul>
+
+                <h3>重新激活</h3>
+                <ul>
+                    <li>作为移动的替代，将补给中的面具放置在棋盘上你的一个影子上</li>
+                    <li>面具必须同时匹配激活符文<strong>和</strong>休息符文</li>
+                    <li>如果镜像是你的激活或休息符文，你可以重新激活任何匹配另一个符文的棋子</li>
+                    <li>重新激活后，解决任何捕获</li>
+                </ul>
+
+                <h3>结束游戏</h3>
+                <p><strong>突然死亡：</strong>当一名玩家将魔像移入对手的底线时，游戏立即结束。该玩家获胜！</p>
+                <p><strong>额外生命：</strong>每次你完成突破到对手底线，对手都会失去一条生命。得分的魔像仍可在该回合进行捕获和放置影子。完成突破后，该魔像作为面具和影子返回你的补给。将对手的生命值降为零即可获胜！</p>
+                <p>如果一名玩家无法采取任何有效行动（没有符文允许移动或重新激活），游戏以<strong>平局</strong>结束。</p>
+
+                <h3>符号参考</h3>
+                <p><strong>形状：</strong>Ω 月亮, Χ 沙, Λ 山峰</p>
+                <p><strong>颜色：</strong>白色, 橙色, 蓝色</p>
+                <p><strong>镜像：</strong>◇（复制休息符文）</p>
+                `,
+                tutorial: [
+                    // Capsule 1: Objective
+                    `<h2>目标</h2>
+                    <div class="tutorial-body">
+                        <p>Inara是一款回合制双人抽象策略游戏。</p>
+                        <p><strong>你的目标：</strong>成为第一个用你的<em>魔像</em>到达对手底线的玩家。</p>
+                    </div>`,
+                    
+                    // Capsule 2: Components
+                    `<h2>组件</h2>
+                    <div class="tutorial-body">
+                        <p>游戏在一个8×8的棋盘上进行，两名玩家面对面坐着。</p>
+                        <p>有<strong>7个符文</strong>（3种颜色、3种形状和一个镜像），以及每位玩家<strong>9个魔像</strong>。</p>
+                        <p>每个魔像有2个与符文匹配的特征（一种颜色和一种形状）：</p>
+                        <ul>
+                            <li><strong>颜色：</strong>蓝色、橙色、白色</li>
+                            <li><strong>形状：</strong>Λ 山峰, Χ 沙, Ω 月亮</li>
+                        </ul>
+                    </div>`,
+                    
+                    // Capsule 3: Preparation
+                    `<h2>准备</h2>
+                    <div class="tutorial-body">
+                        <p>决定谁先行。你可以选择计时或不计时。</p>
+                        <p>作为<strong>暗方</strong>，你作为先手玩家控制暗色棋子。你的<strong>光方</strong>对手使用浅色棋子。</p>
+                        <p>暗色棋子在亮格上移动；浅色棋子在暗格上移动。</p>
+                        <p>拿起符文，随机给每位玩家3个作为起始手牌。剩余的符文成为先手玩家的<em>休息</em>符文。</p>
+                        <p>每位玩家有9个魔像。随机将8个放置在你前两排的起始格上。剩余的魔像被拆解，面具保存在你的补给中。</p>
+                    </div>`,
+                    
+                    // Capsule 4: Glyphs (INTERACTIVE)
+                    `<h2>符文</h2>
+                    <div class="tutorial-body">
+                        <p>每回合，激活一个符文来执行一个行动。</p>
+                        <p><strong>行动：</strong>步行、跳跃或重新激活</p>
+                        <p>执行该行动的魔像必须与符文的形状或颜色匹配。<strong>镜像符文 ◇</strong>让你复制当前回合的休息符文。</p>
+                        <p>执行完行动后，你激活的符文成为对手的休息符文。你将休息符文收回手中。</p>
+                        <p><strong>警告：</strong>如果魔像不匹配你手中的任何符文，它在该回合无法执行任何行动！</p>
+                        <div class="tutorial-prompt">
+                            <p>选择不同的符文和魔像来看它们如何匹配：</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="select-golem-1">☐ 选择一个与符文匹配的魔像</li>
+                                <li data-objective="select-golem-2">☐ 选择另一个与符文匹配的魔像</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 5: Steps (INTERACTIVE)
+                    `<h2>步行</h2>
+                    <div class="tutorial-body">
+                        <p><strong>正交步行：</strong>沿直线（东/南/西/北）移动正好2格。中间格必须为空。</p>
+                        <p><strong>对角步行：</strong>沿对角线移动正好1格。</p>
+                        <div class="tutorial-prompt">
+                            <p>完成所有步骤以继续：</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="diag-forward">☐ 对角向前移动</li>
+                                <li data-objective="diag-backward">☐ 对角向后移动</li>
+                                <li data-objective="ortho-forward">☐ 向前移动（2格）</li>
+                                <li data-objective="ortho-backward">☐ 向后移动（2格）</li>
+                                <li data-objective="ortho-lateral">☐ 向左或向右移动（2格）</li>
+                            </ul>
+                            <button class="tutorial-reset-btn" onclick="resetTutorialScenario()">重置</button>
+                            <button class="tutorial-continue-btn" id="tutorialContinueBtn" onclick="tutorialNext()" disabled>继续</button>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 6: Single Jump (INTERACTIVE)
+                    `<h2>跳跃：单跳</h2>
+                    <div class="tutorial-body">
+                        <p><strong>对角</strong>跳过一个友方棋子，落在它后面的空格上。</p>
+                        <p>你不能跳过敌人或空格。</p>
+                        <div class="tutorial-prompt">
+                            <p>向前跳过一个棋子。</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="single-jump">☐ 向前做一次单棋子跳跃</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 7: Multi-Piece Jump (INTERACTIVE)
+                    `<h2>跳跃：多棋子</h2>
+                    <div class="tutorial-body">
+                        <p>你可以在一次跳跃中跳过<strong>多个连续的棋子</strong>。落在它们之后的第一个空格上。</p>
+                        <div class="tutorial-prompt">
+                            <p>一次跳过两个或更多棋子。</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="multi-piece-jump">☐ 一次跳跃跳过多个棋子</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 8: Chain Jumps (INTERACTIVE)
+                    `<h2>跳跃：连续跳跃</h2>
+                    <div class="tutorial-body">
+                        <p>落地后，如果另一个友方棋子相邻，你可以<strong>继续</strong>向任何对角方向跳跃。所有跳跃在一回合内完成！</p>
+                        <div class="tutorial-prompt">
+                            <p>用你的影子作为踏脚石。进行2次或更多跳跃的连续跳跃！</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="chain-jump">☐ 进行连续跳跃（一次移动中2+次跳跃）</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 9: Winning (INTERACTIVE)
+                    `<h2>获胜</h2>
+                    <div class="tutorial-body">
+                        <p><strong>暗方</strong>通过到达第1行（光方底线）获胜。</p>
+                        <p><strong>光方</strong>通过到达第8行（暗方底线）获胜。</p>
+                        <p>第一个将魔像移到对手底线的玩家立即获胜！</p>
+                        <div class="tutorial-prompt">
+                            <p>到达顶行获胜！</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="reach-goal">☐ 将魔像移到第1行</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 10: Capturing (INTERACTIVE)
+                    `<h2>捕获</h2>
+                    <div class="tutorial-body">
+                        <p>通过用两个己方棋子从两侧包围对方棋子来捕获它们。</p>
+                        <p>你必须在回合中用你移动或重新激活的魔像创造这个"夹击"。</p>
+                        <p>你激活的魔像只有在与目标魔像的形状或颜色<strong>不</strong>匹配时才会捕获它。</p>
+                        <div class="tutorial-prompt">
+                            <p>夹击浅色棋子来捕获它。</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="capture">☐ 捕获一个敌方棋子</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 11: Double Capture (INTERACTIVE)
+                    `<h2>捕获：多重与免疫</h2>
+                    <div class="tutorial-body">
+                        <p>如果你在不同方向夹击多个棋子，可以在一次移动中捕获<strong>多个棋子</strong>。</p>
+                        <p>但记住：与你移动的棋子<strong>共享特征</strong>（形状或颜色）的棋子<strong>免疫</strong>捕获！</p>
+                        <div class="tutorial-prompt">
+                            <p>一次捕获两个棋子。注意第三个棋子是免疫的！</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="double-capture">☐ 一次移动捕获两个棋子</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 12: Safe Movement (INTERACTIVE)
+                    `<h2>捕获：安全移动</h2>
+                    <div class="tutorial-body">
+                        <p>如果你的棋子与敌方棋子至少共享一个特征，你可以安全地移动到敌方棋子<strong>之间</strong>。</p>
+                        <p>这种免疫是双向的——你不能捕获它们，但它们也不能捕获你！</p>
+                        <div class="tutorial-prompt">
+                            <p>在敌方棋子之间移动而不被捕获。</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="safe-move">☐ 在敌方棋子之间安全移动</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 13: Shadows (INTERACTIVE)
+                    `<h2>影子</h2>
+                    <div class="tutorial-body">
+                        <p>移动后，你可以通过在移动前点击影子按钮，在离开的格子上留下一个<strong>影子</strong>。</p>
+                        <p>影子可作为对角跳跃的踏脚石，并阻挡敌人的移动路径。</p>
+                        <p><strong>注意：</strong>在光方放置影子之前，暗方不能放置影子。</p>
+                        <p><strong>警告：</strong>如果你的任何影子被捕获，你所有的影子都会被移除！</p>
+                        <div class="tutorial-prompt">
+                            <p>影子开关已打开。移动以在身后留下影子！</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="shadow-place">☐ 放置一个影子</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 14: Reactivation (INTERACTIVE)
+                    `<h2>重新激活</h2>
+                    <div class="tutorial-body">
+                        <p>作为移动的替代，你可以<strong>重新激活</strong>一个被捕获的棋子：</p>
+                        <ul>
+                            <li>你必须在补给中有面具，并且棋盘上有影子</li>
+                            <li>面具必须同时匹配你的激活符文<strong>和</strong>休息符文</li>
+                            <li>如果镜像 ◇ 是你的激活或休息符文，它会复制另一个符文的要求</li>
+                            <li>点击面具，然后点击影子来放置魔像</li>
+                        </ul>
+                        <div class="tutorial-prompt">
+                            <p>选择正确的符文，将面具重新激活到影子上。</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="reactivate">☐ 重新激活一个面具</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 15: Reactivation Capture (INTERACTIVE)
+                    `<h2>重新激活：捕获</h2>
+                    <div class="tutorial-body">
+                        <p>当你重新激活一个魔像时，它可以像普通移动一样<strong>捕获</strong>敌方棋子！</p>
+                        <p>重新激活的魔像会捕获任何它夹击的相邻敌方棋子（不共享特征的）。</p>
+                        <div class="tutorial-prompt">
+                            <p>重新激活你的面具来捕获敌方棋子。</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="reactivate-capture">☐ 通过重新激活捕获</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 16: Ready to Play
+                    `<h2>准备开始！</h2>
+                    <div class="tutorial-body">
+                        <p>你现在已经了解了Inara的基本要素：</p>
+                        <ul>
+                            <li>竞速到达对手底线获胜</li>
+                            <li>使用符文选择哪些棋子可以移动</li>
+                            <li>步行、跳跃，并连续向前推进</li>
+                            <li>捕获以防守，重新激活以恢复</li>
+                        </ul>
+                        <p style="margin-top: 12px;"><strong>平局：</strong>如果你的符文都不允许移动或重新激活，游戏以平局结束。</p>
+                        <button class="btn" onclick="closeTutorial(); showNewGameModal();" style="margin-top: 15px; width: 100%;">开始游戏</button>
+                    </div>`
+                ]
+            },
+            es: {
+                quick: `
+                <h3>Objetivo</h3>
+                <p><strong>Muerte Súbita:</strong> ¡Lleva tus golems a través del tablero y sé el primero en mover uno a una casilla en la fila de inicio de tu oponente para ganar!</p>
+                <p><strong>Vidas Extra:</strong> ¡Tu oponente pierde una vida cada vez que completas una de estas carreras. Reduce sus vidas a cero para ganar!</p>
+
+                <h3>En Tu Turno</h3>
+                <ul>
+                    <li>Selecciona un glifo de tu mano</li>
+                    <li>Mueve un golem que coincida con la forma o color del glifo</li>
+                    <li>Si usas el glifo Espejo, coincide con el glifo en reposo</li>
+                    <li>El glifo usado se convierte en el glifo en reposo de tu oponente</li>
+                    <li>Recoge tu glifo en reposo a tu mano</li>
+                </ul>
+
+                <h3>Movimiento</h3>
+                <ul>
+                    <li><strong>Paso:</strong> Mueve 2 espacios ortogonalmente (N/S/E/O) si la casilla del medio está vacía, O 1 espacio en diagonal</li>
+                    <li><strong>Salto:</strong> Salta diagonalmente sobre tus propias piezas hasta la siguiente casilla vacía</li>
+                    <li>¡Encadena múltiples saltos en un turno!</li>
+                </ul>
+
+                <h3>Captura</h3>
+                <ul>
+                    <li>Rodea una pieza del oponente en lados opuestos (horizontal o vertical)</li>
+                    <li>Tu pieza en movimiento NO debe coincidir con el objetivo en forma o color</li>
+                    <li>Los golems capturados devuelven su máscara y sombra al suministro del propietario</li>
+                </ul>
+
+                <h3>Puntuación (Vidas Extra)</h3>
+                <ul>
+                    <li>Los golems que completan una carrera aún pueden hacer capturas y dejar sombras en ese turno</li>
+                    <li>Completar una carrera devuelve ese golem a tu suministro como máscara y sombra</li>
+                </ul>
+
+                <h3>Sombras</h3>
+                <ul>
+                    <li>Después de mover, puedes dejar una sombra en la casilla desocupada (si está disponible)</li>
+                    <li>Oscuro no puede colocar sombras hasta que Claro haya colocado una primero</li>
+                    <li>Las sombras pueden ayudar a capturar y bloquear movimiento</li>
+                    <li>¡Si UNA sombra es capturada, TODAS tus sombras son removidas!</li>
+                </ul>
+
+                <h3>Reactivación</h3>
+                <ul>
+                    <li>En lugar de mover, coloca una máscara de tu suministro sobre una de tus sombras</li>
+                    <li>La máscara debe coincidir TANTO con el glifo activo COMO con el glifo en reposo</li>
+                    <li>Si usas Espejo, copia el requisito del otro glifo</li>
+                </ul>
+
+                <h3>Símbolos</h3>
+                <p><strong>Formas:</strong> Ω Luna, Χ Arena, Λ Pico</p>
+                <p><strong>Colores:</strong> Blanco, Naranja, Azul</p>
+                <p><strong>Espejo:</strong> ◇ (copia el glifo en reposo)</p>
+                `,
+                full: `
+                <h3>Descripción</h3>
+                <p>Inara es una contienda de posicionamiento hábil y adaptación a recursos en constante cambio. No hay azar una vez que el juego ha comenzado y no hay información oculta.</p>
+
+                <h3>Materiales</h3>
+                <ul>
+                    <li>Un tablero de ajedrez (8×8) con casillas claras y oscuras</li>
+                    <li>7 fichas de Glifo: 3 formas (Luna, Arena, Pico), 3 colores (Blanco, Naranja, Azul) y 1 Espejo</li>
+                    <li>Dos conjuntos de 9 golems (Claro y Oscuro), cada uno con una piedra de sombra y máscara marcada mostrando una de nueve combinaciones únicas de forma/color</li>
+                </ul>
+
+                <h3>Preparación del Juego</h3>
+                <ol>
+                    <li>Dale a cada jugador un conjunto de golems. El jugador con golems oscuros mueve primero.</li>
+                    <li>Coloca 8 de tus golems aleatoriamente en casillas alternadas en tus dos primeras filas. Los golems claros van en casillas oscuras; los golems oscuros van en casillas claras.</li>
+                    <li>Deja tu 9º golem aparte—desmóntalo y pon la máscara y sombra en tu suministro.</li>
+                    <li>Distribuye los glifos aleatoriamente: Oscuro recibe 3, Claro recibe 3. El glifo restante se convierte en el glifo en reposo de Oscuro.</li>
+                </ol>
+
+                <h3>Objetivo</h3>
+                <p>¡Lleva tus golems a través del tablero y sé el primero en mover uno a la fila trasera de tu oponente. La victoria es tuya si lo logras antes que ellos!</p>
+
+                <h3>Resumen del Turno</h3>
+                <p>Los jugadores alternan turnos. Al inicio de tu turno, tienes 3 glifos en mano y 1 en reposo. Debes tomar una acción—no puedes pasar.</p>
+                <ol>
+                    <li><strong>Juega un glifo</strong> de tu mano como el glifo activo, luego:
+                        <ul>
+                            <li>Mueve un golem que coincida con la forma o color del glifo activo (o si Espejo está activo, coincide con el glifo en reposo)</li>
+                            <li>O Reactiva un golem</li>
+                        </ul>
+                    </li>
+                    <li><strong>Resuelve capturas</strong> resultantes del movimiento o reactivación</li>
+                    <li><strong>Termina tu turno</strong> recogiendo el glifo en reposo</li>
+                    <li>Tu glifo usado se convierte en el nuevo glifo en reposo para tu oponente</li>
+                </ol>
+
+                <h3>Cómo Mover</h3>
+                <p>Cada casilla puede contener como máximo un golem o sombra.</p>
+                <h4>Paso</h4>
+                <ul>
+                    <li>Mueve ortogonalmente 2 espacios (N/S/E/O). Esto puede ser bloqueado por piezas oponentes en la casilla intermedia.</li>
+                    <li>O mueve 1 espacio diagonalmente. Esto no puede ser obstaculizado por piezas cercanas.</li>
+                </ul>
+                <h4>Salto</h4>
+                <ul>
+                    <li>Salta diagonalmente sobre tus propias piezas (incluyendo sombras) hasta la siguiente casilla vacía</li>
+                    <li>Puedes saltar sobre una pieza o múltiples piezas alineadas en fila</li>
+                    <li>Encadena varios saltos juntos como un solo movimiento</li>
+                    <li>No puedes saltar de vuelta a tu casilla inicial en el mismo turno</li>
+                </ul>
+
+                <h3>Capturar Piezas</h3>
+                <ul>
+                    <li>Después de mover o reactivar, tu golem captura cualquier pieza oponente rodeada en dos lados opuestos (horizontal o vertical) por el golem en movimiento y otra de tus piezas</li>
+                    <li>La pieza en movimiento captura cualquier pieza oponente que <strong>no</strong> coincida con ella en forma, color o ambos. Las piezas que coinciden por forma o color están a salvo.</li>
+                    <li>La forma/color de la pieza estacionaria no importa—solo cuentan los atributos de la pieza en movimiento</li>
+                    <li>Las piezas capturadas son desmontadas y devueltas al suministro de su propietario</li>
+                    <li>Mover a una casilla entre dos piezas oponentes <strong>no</strong> resulta en tu captura</li>
+                </ul>
+
+                <h3>Sombras</h3>
+                <ul>
+                    <li>Cuando tu golem se mueve, puedes dejar una sombra en la casilla desocupada (si tienes una en suministro)</li>
+                    <li><strong>Oscuro no puede colocar sombras hasta que Claro haya colocado una primero</strong></li>
+                    <li>Las sombras no pueden moverse pero pueden bloquear pasos del oponente</li>
+                    <li>Tus golems pueden saltar sobre tus propias sombras</li>
+                    <li>Las sombras pueden ser piezas estacionarias para capturar</li>
+                    <li>Las sombras pueden ser capturadas por cualquier pieza oponente (no se requiere coincidencia)</li>
+                    <li><strong>Regla de Captura de Sombras:</strong> Si una de tus sombras es capturada, TODAS tus sombras restantes son inmediatamente removidas y devueltas a tu suministro</li>
+                </ul>
+
+                <h3>Reactivación</h3>
+                <ul>
+                    <li>En lugar de mover, coloca una máscara de tu suministro sobre una de tus sombras en el tablero</li>
+                    <li>La máscara debe coincidir <strong>tanto</strong> con el glifo activo COMO con el glifo en reposo</li>
+                    <li>Si Espejo es tu glifo activo o en reposo, puedes reactivar cualquier pieza que coincida con el otro glifo</li>
+                    <li>Después de reactivar, resuelve cualquier captura</li>
+                </ul>
+
+                <h3>Fin del Juego</h3>
+                <p><strong>Muerte Súbita:</strong> ¡El juego termina inmediatamente cuando un jugador mueve un golem a la primera fila de su oponente. Ese jugador gana!</p>
+                <p><strong>Vidas Extra:</strong> Tu oponente pierde una vida cada vez que completas una carrera a su fila trasera. El golem que anota aún puede hacer capturas y dejar una sombra en ese turno. Completar una carrera también devuelve ese golem a tu suministro como máscara y sombra. ¡Reduce sus vidas a cero para ganar!</p>
+                <p>Si un jugador no puede tomar ninguna acción válida (ningún glifo permite movimiento o reactivación), el juego termina en <strong>empate</strong>.</p>
+
+                <h3>Referencia de Símbolos</h3>
+                <p><strong>Formas:</strong> Ω Luna, Χ Arena, Λ Pico</p>
+                <p><strong>Colores:</strong> Blanco, Naranja, Azul</p>
+                <p><strong>Espejo:</strong> ◇ (copia el glifo en reposo)</p>
+                `,
+                tutorial: [
+                    // Capsule 1: Objective
+                    `<h2>Objetivo</h2>
+                    <div class="tutorial-body">
+                        <p>Inara es un juego de estrategia abstracta por turnos para dos jugadores.</p>
+                        <p><strong>Tu objetivo:</strong> Sé el primero en alcanzar el lado del tablero de tu oponente con solo uno de tus <em>golems</em>.</p>
+                    </div>`,
+                    
+                    // Capsule 2: Components
+                    `<h2>Componentes</h2>
+                    <div class="tutorial-body">
+                        <p>El juego se juega en un tablero de ajedrez 8×8 con dos jugadores sentados uno frente al otro.</p>
+                        <p>Hay <strong>7 glifos</strong> (3 colores, 3 formas y un espejo), así como <strong>9 golems</strong> para cada jugador.</p>
+                        <p>Cada golem tiene 2 rasgos (un color y una forma) que coinciden con los glifos:</p>
+                        <ul>
+                            <li><strong>Colores:</strong> Azul, Naranja, Blanco</li>
+                            <li><strong>Formas:</strong> Λ Pico, Χ Arena, Ω Luna</li>
+                        </ul>
+                    </div>`,
+                    
+                    // Capsule 3: Preparation
+                    `<h2>Preparación</h2>
+                    <div class="tutorial-body">
+                        <p>Decide quién irá primero. Puedes jugar con o sin tiempo.</p>
+                        <p>Como <strong>Oscuro</strong>, controlas las piezas oscuras como jugador inicial. Tu oponente <strong>Claro</strong> toma las piezas claras.</p>
+                        <p>Las piezas oscuras se mueven en casillas claras; las piezas claras se mueven en casillas oscuras.</p>
+                        <p>Toma los glifos y dale a cada jugador 3 aleatoriamente como sus manos iniciales. El glifo sobrante se convierte en el glifo <em>en reposo</em> del primer jugador.</p>
+                        <p>Cada jugador tiene 9 golems. Coloca aleatoriamente 8 de ellos — uno en cada casilla inicial en tus dos primeras filas. Tu golem restante se desmonta y se guarda en tu suministro como máscara.</p>
+                    </div>`,
+                    
+                    // Capsule 4: Glyphs (INTERACTIVE)
+                    `<h2>Glifos</h2>
+                    <div class="tutorial-body">
+                        <p>Cada turno, activa un glifo para realizar una acción.</p>
+                        <p><strong>Acciones:</strong> Paso, Salto o Reactivar</p>
+                        <p>El golem que realiza esa acción debe coincidir con el glifo por forma o color. El <strong>glifo espejo ◇</strong> te permite copiar el glifo en reposo en tu turno.</p>
+                        <p>Una vez que hayas realizado esa acción, el glifo que activaste va a tu oponente como su glifo en reposo. Recoges tu glifo en reposo a tu mano.</p>
+                        <p><strong>Advertencia:</strong> ¡Si un golem no coincide con ningún glifo en tu mano, no puede realizar ninguna acción ese turno!</p>
+                        <div class="tutorial-prompt">
+                            <p>Selecciona diferentes glifos y golems para ver cómo coinciden:</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="select-golem-1">☐ Selecciona un golem con un glifo coincidente</li>
+                                <li data-objective="select-golem-2">☐ Selecciona un golem diferente con un glifo coincidente</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 5: Steps (INTERACTIVE)
+                    `<h2>Pasos</h2>
+                    <div class="tutorial-body">
+                        <p><strong>Paso Ortogonal:</strong> Mueve exactamente 2 casillas en línea recta (N/S/E/O). La casilla del medio debe estar vacía.</p>
+                        <p><strong>Paso Diagonal:</strong> Mueve exactamente 1 casilla diagonalmente.</p>
+                        <div class="tutorial-prompt">
+                            <p>Completa todos los pasos para continuar:</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="diag-forward">☐ Paso diagonal hacia adelante</li>
+                                <li data-objective="diag-backward">☐ Paso diagonal hacia atrás</li>
+                                <li data-objective="ortho-forward">☐ Paso hacia adelante (2 casillas)</li>
+                                <li data-objective="ortho-backward">☐ Paso hacia atrás (2 casillas)</li>
+                                <li data-objective="ortho-lateral">☐ Paso izquierda o derecha (2 casillas)</li>
+                            </ul>
+                            <button class="tutorial-reset-btn" onclick="resetTutorialScenario()">Reiniciar</button>
+                            <button class="tutorial-continue-btn" id="tutorialContinueBtn" onclick="tutorialNext()" disabled>Continuar</button>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 6: Single Jump (INTERACTIVE)
+                    `<h2>Saltos: Salto Simple</h2>
+                    <div class="tutorial-body">
+                        <p>Salta <strong>diagonalmente</strong> sobre una pieza aliada para aterrizar en la casilla vacía justo detrás de ella.</p>
+                        <p>No puedes saltar sobre enemigos o casillas vacías.</p>
+                        <div class="tutorial-prompt">
+                            <p>Salta hacia adelante sobre una pieza.</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="single-jump">☐ Haz un salto simple hacia adelante</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 7: Multi-Piece Jump (INTERACTIVE)
+                    `<h2>Saltos: Múltiples Piezas</h2>
+                    <div class="tutorial-body">
+                        <p>Puedes saltar sobre <strong>múltiples piezas contiguas</strong> en un solo salto. Aterriza en la primera casilla vacía más allá de todas ellas.</p>
+                        <div class="tutorial-prompt">
+                            <p>Salta sobre dos o más piezas a la vez.</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="multi-piece-jump">☐ Salta sobre múltiples piezas en un salto</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 8: Chain Jumps (INTERACTIVE)
+                    `<h2>Saltos: Saltos Encadenados</h2>
+                    <div class="tutorial-body">
+                        <p>Después de aterrizar, puedes <strong>continuar saltando</strong> en cualquier dirección diagonal si otra pieza aliada está adyacente. ¡Todos los saltos ocurren en un turno!</p>
+                        <div class="tutorial-prompt">
+                            <p>Usa tus sombras como escalones. ¡Haz un salto encadenado con 2 o más saltos!</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="chain-jump">☐ Haz un salto encadenado (2+ saltos en un movimiento)</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 9: Winning (INTERACTIVE)
+                    `<h2>Ganar</h2>
+                    <div class="tutorial-body">
+                        <p><strong>Oscuro</strong> gana llegando a la fila 1 (fila trasera de Claro).</p>
+                        <p><strong>Claro</strong> gana llegando a la fila 8 (fila trasera de Oscuro).</p>
+                        <p>¡El primer jugador en colocar un golem en la fila trasera de su oponente gana inmediatamente!</p>
+                        <div class="tutorial-prompt">
+                            <p>¡Alcanza la fila superior para ganar!</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="reach-goal">☐ Mueve un golem a la fila 1</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 10: Capturing (INTERACTIVE)
+                    `<h2>Captura</h2>
+                    <div class="tutorial-body">
+                        <p>Captura las piezas de tu oponente rodeándolas en dos lados opuestos entre dos de tus piezas.</p>
+                        <p>Debes crear este "sándwich" en tu turno con el golem que moviste o reactivaste.</p>
+                        <p>El golem que activaste solo capturará otro golem si <strong>NO</strong> coincide con el golem objetivo por forma o color.</p>
+                        <div class="tutorial-prompt">
+                            <p>Encierra la pieza clara para capturarla.</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="capture">☐ Captura una pieza enemiga</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 11: Double Capture (INTERACTIVE)
+                    `<h2>Captura: Múltiple e Inmunidad</h2>
+                    <div class="tutorial-body">
+                        <p>Puedes capturar <strong>múltiples piezas</strong> en un movimiento si las encierras en diferentes direcciones.</p>
+                        <p>¡Pero recuerda: las piezas que <strong>comparten un rasgo</strong> (forma o color) con tu pieza en movimiento son <strong>inmunes</strong> a la captura!</p>
+                        <div class="tutorial-prompt">
+                            <p>Captura dos piezas a la vez. ¡Nota que la tercera pieza es inmune!</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="double-capture">☐ Captura dos piezas en un movimiento</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 12: Safe Movement (INTERACTIVE)
+                    `<h2>Captura: Movimiento Seguro</h2>
+                    <div class="tutorial-body">
+                        <p>Puedes mover con seguridad <strong>entre</strong> piezas enemigas si tu pieza comparte un rasgo con al menos una de ellas.</p>
+                        <p>¡Esta inmunidad funciona en ambas direcciones — no puedes capturarlas, pero ellas tampoco pueden capturarte!</p>
+                        <div class="tutorial-prompt">
+                            <p>Mueve entre las piezas enemigas sin ser capturado.</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="safe-move">☐ Mueve con seguridad entre piezas enemigas</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 13: Shadows (INTERACTIVE)
+                    `<h2>Sombras</h2>
+                    <div class="tutorial-body">
+                        <p>Después de mover, puedes dejar una <strong>sombra</strong> en tu casilla desocupada haciendo clic en el botón de sombra antes de mover.</p>
+                        <p>Las sombras actúan como escalones para saltos diagonales y bloquean las rutas de movimiento enemigas.</p>
+                        <p><strong>Nota:</strong> Oscuro no puede colocar sombras hasta que Claro haya colocado una primero.</p>
+                        <p><strong>Advertencia:</strong> ¡Si CUALQUIERA de tus sombras es capturada, TODAS tus sombras son removidas!</p>
+                        <div class="tutorial-prompt">
+                            <p>El interruptor de sombra ya está activado. ¡Mueve para dejar una sombra atrás!</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="shadow-place">☐ Coloca una sombra</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 14: Reactivation (INTERACTIVE)
+                    `<h2>Reactivación</h2>
+                    <div class="tutorial-body">
+                        <p>En lugar de mover, puedes <strong>reactivar</strong> una pieza capturada:</p>
+                        <ul>
+                            <li>Debes tener una máscara en tu suministro y una sombra en el tablero</li>
+                            <li>La máscara debe coincidir <strong>TANTO</strong> con tu glifo activo <strong>COMO</strong> con tu glifo en reposo</li>
+                            <li>Si el espejo ◇ es tu glifo activo o en reposo, copia el requisito del otro glifo</li>
+                            <li>Haz clic en la máscara, luego en una sombra para colocar el golem</li>
+                        </ul>
+                        <div class="tutorial-prompt">
+                            <p>Selecciona el glifo correcto y reactiva la máscara sobre la sombra.</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="reactivate">☐ Reactiva una máscara</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 15: Reactivation Capture (INTERACTIVE)
+                    `<h2>Reactivación: Captura</h2>
+                    <div class="tutorial-body">
+                        <p>¡Cuando reactivas un golem, puede <strong>capturar</strong> piezas enemigas igual que un movimiento regular!</p>
+                        <p>El golem reactivado captura cualquier pieza enemiga adyacente que encierre (que no comparta un rasgo).</p>
+                        <div class="tutorial-prompt">
+                            <p>Reactiva tu máscara para capturar la pieza enemiga.</p>
+                            <ul class="tutorial-checklist">
+                                <li data-objective="reactivate-capture">☐ Captura mediante reactivación</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                    
+                    // Capsule 16: Ready to Play
+                    `<h2>¡Listo para Jugar!</h2>
+                    <div class="tutorial-body">
+                        <p>Ahora conoces lo esencial de Inara:</p>
+                        <ul>
+                            <li>Corre hacia la fila trasera de tu oponente para ganar</li>
+                            <li>Usa glifos para seleccionar qué piezas pueden moverse</li>
+                            <li>Da pasos, salta y encadena tu camino hacia adelante</li>
+                            <li>Captura para defender, reactiva para recuperar</li>
+                        </ul>
+                        <p style="margin-top: 12px;"><strong>Empate:</strong> Si ninguno de tus glifos permite mover o reactivar, el juego termina en empate.</p>
+                        <button class="btn" onclick="closeTutorial(); showNewGameModal();" style="margin-top: 15px; width: 100%;">Comenzar a Jugar</button>
+                    </div>`
+                ]
+            }
+        };
+        
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            
+            // Update language button states
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === lang);
+            });
+            
+            // Store original English content on first call
+            if (!originalRulesQuick) {
+                originalRulesQuick = document.getElementById('rules-quick').innerHTML;
+                originalRulesFull = document.getElementById('rules-full').innerHTML;
+                originalTutorialCapsules = [];
+                document.querySelectorAll('.tutorial-capsule').forEach(capsule => {
+                    originalTutorialCapsules.push(capsule.innerHTML);
+                });
+            }
+            
+            // Apply translations or restore English
+            if (lang === 'en' || !translations[lang]) {
+                document.getElementById('rules-quick').innerHTML = originalRulesQuick;
+                document.getElementById('rules-full').innerHTML = originalRulesFull;
+                document.querySelectorAll('.tutorial-capsule').forEach((capsule, i) => {
+                    capsule.innerHTML = originalTutorialCapsules[i];
+                });
+            } else {
+                document.getElementById('rules-quick').innerHTML = translations[lang].quick;
+                document.getElementById('rules-full').innerHTML = translations[lang].full;
+                document.querySelectorAll('.tutorial-capsule').forEach((capsule, i) => {
+                    if (translations[lang].tutorial[i]) {
+                        capsule.innerHTML = translations[lang].tutorial[i];
+                    }
+                });
+            }
+            
+            // Save preference
+            localStorage.setItem('inaraLanguage', lang);
+        }
+        
+        // Load saved language preference on startup
+        function loadLanguagePreference() {
+            const saved = localStorage.getItem('inaraLanguage');
+            if (saved && saved !== 'en') {
+                setLanguage(saved);
+            }
+        }
 
         // === DOM ELEMENT CACHE ===
         const domCache = {};
@@ -6375,7 +7216,24 @@
         }
 
         function toggleRules() {
-            document.getElementById('rulesModal').classList.toggle('show');
+            const modal = document.getElementById('rulesModal');
+            if (modal.classList.contains('show')) {
+                // Closing - reset to language selection for next open
+                modal.classList.remove('show');
+                document.getElementById('rulesLangSelect').style.display = 'block';
+                document.getElementById('rulesContent').style.display = 'none';
+            } else {
+                // Opening - show language selection
+                document.getElementById('rulesLangSelect').style.display = 'block';
+                document.getElementById('rulesContent').style.display = 'none';
+                modal.classList.add('show');
+            }
+        }
+        
+        function showRulesWithLang(lang) {
+            setLanguage(lang);
+            document.getElementById('rulesLangSelect').style.display = 'none';
+            document.getElementById('rulesContent').style.display = 'block';
         }
         
         function showAbout() {
@@ -6714,6 +7572,23 @@
         }
 
         function openTutorial() {
+            // Show language selection first
+            document.getElementById('tutorialLangSelect').style.display = 'block';
+            document.getElementById('tutorialNav').style.display = 'none';
+            document.getElementById('tutorialCapsules').style.display = 'none';
+            document.getElementById('tutorialModal').classList.add('show');
+        }
+        
+        function startTutorialWithLang(lang) {
+            // Apply language
+            setLanguage(lang);
+            
+            // Hide language selection, show tutorial content
+            document.getElementById('tutorialLangSelect').style.display = 'none';
+            document.getElementById('tutorialNav').style.display = 'flex';
+            document.getElementById('tutorialCapsules').style.display = 'block';
+            
+            // Initialize tutorial
             tutorialCurrentCapsule = 1;
             tutorialMode = true;
             
@@ -6728,13 +7603,17 @@
             tutorialSavedState.clockInterval = gameState.clockInterval;
             
             updateTutorialDisplay();
-            document.getElementById('tutorialModal').classList.add('show');
         }
 
         function closeTutorial() {
             document.getElementById('tutorialModal').classList.remove('show');
             document.getElementById('tutorialConsole').classList.remove('show');
             document.querySelector('.game-area').classList.remove('tutorial-active');
+            
+            // Reset language selector visibility for next open
+            document.getElementById('tutorialLangSelect').style.display = 'block';
+            document.getElementById('tutorialNav').style.display = 'none';
+            document.getElementById('tutorialCapsules').style.display = 'none';
             
             tutorialMode = false;
             
@@ -7813,6 +8692,7 @@
         // Initialize on load - render board, menu accessible
         // User can access menu, tutorial, rules before starting a game
         initGame();
+        loadLanguagePreference();
         
         // Check for room code in URL and auto-join
         (function checkUrlForRoom() {
