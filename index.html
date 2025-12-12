@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Inara - Strategic Board Game</title>
+    <title>Inara - Play Online</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -2648,13 +2648,10 @@
                         <p><strong>Orthogonal Step:</strong> Move exactly 2 squares in a straight line (N/S/E/W). The middle square must be empty.</p>
                         <p><strong>Diagonal Step:</strong> Move exactly 1 square diagonally.</p>
                         <div class="tutorial-prompt">
-                            <p>Complete all steps to continue:</p>
+                            <p>Try both types of steps:</p>
                             <ul class="tutorial-checklist">
-                                <li data-objective="diag-forward">☐ Step diagonally forward</li>
-                                <li data-objective="diag-backward">☐ Step diagonally backward</li>
-                                <li data-objective="ortho-forward">☐ Step forward (2 squares)</li>
-                                <li data-objective="ortho-backward">☐ Step backward (2 squares)</li>
-                                <li data-objective="ortho-lateral">☐ Step left or right (2 squares)</li>
+                                <li data-objective="ortho-step">☐ Make an orthogonal step (2 squares)</li>
+                                <li data-objective="diag-step">☐ Make a diagonal step (1 square)</li>
                             </ul>
                             <button class="tutorial-reset-btn" onclick="resetTutorialScenario()">Reset</button>
                             <button class="tutorial-continue-btn" id="tutorialContinueBtn" onclick="tutorialNext()" disabled>Continue</button>
@@ -3319,13 +3316,10 @@
                         <p><strong>正交步行：</strong>沿直线（东/南/西/北）移动正好2格。中间格必须为空。</p>
                         <p><strong>对角步行：</strong>沿对角线移动正好1格。</p>
                         <div class="tutorial-prompt">
-                            <p>完成所有步骤以继续：</p>
+                            <p>尝试两种步行方式：</p>
                             <ul class="tutorial-checklist">
-                                <li data-objective="diag-forward">☐ 对角向前移动</li>
-                                <li data-objective="diag-backward">☐ 对角向后移动</li>
-                                <li data-objective="ortho-forward">☐ 向前移动（2格）</li>
-                                <li data-objective="ortho-backward">☐ 向后移动（2格）</li>
-                                <li data-objective="ortho-lateral">☐ 向左或向右移动（2格）</li>
+                                <li data-objective="ortho-step">☐ 正交步行（2格）</li>
+                                <li data-objective="diag-step">☐ 对角步行（1格）</li>
                             </ul>
                             <button class="tutorial-reset-btn" onclick="resetTutorialScenario()">重置</button>
                             <button class="tutorial-continue-btn" id="tutorialContinueBtn" onclick="tutorialNext()" disabled>继续</button>
@@ -3682,13 +3676,10 @@
                         <p><strong>Paso Ortogonal:</strong> Mueve exactamente 2 casillas en línea recta (N/S/E/O). La casilla del medio debe estar vacía.</p>
                         <p><strong>Paso Diagonal:</strong> Mueve exactamente 1 casilla diagonalmente.</p>
                         <div class="tutorial-prompt">
-                            <p>Completa todos los pasos para continuar:</p>
+                            <p>Prueba ambos tipos de pasos:</p>
                             <ul class="tutorial-checklist">
-                                <li data-objective="diag-forward">☐ Paso diagonal hacia adelante</li>
-                                <li data-objective="diag-backward">☐ Paso diagonal hacia atrás</li>
-                                <li data-objective="ortho-forward">☐ Paso hacia adelante (2 casillas)</li>
-                                <li data-objective="ortho-backward">☐ Paso hacia atrás (2 casillas)</li>
-                                <li data-objective="ortho-lateral">☐ Paso izquierda o derecha (2 casillas)</li>
+                                <li data-objective="ortho-step">☐ Haz un paso ortogonal (2 casillas)</li>
+                                <li data-objective="diag-step">☐ Haz un paso diagonal (1 casilla)</li>
                             </ul>
                             <button class="tutorial-reset-btn" onclick="resetTutorialScenario()">Reiniciar</button>
                             <button class="tutorial-continue-btn" id="tutorialContinueBtn" onclick="tutorialNext()" disabled>Continuar</button>
@@ -7347,30 +7338,23 @@
             5: {
                 board: createEmptyBoard(),
                 setup: function(board) {
-                    // Pieces spread out for step practice (dark pieces on light squares: row+col even)
-                    board[4][0] = { type: 'golem', player: 'dark', shape: 'Λ', color: 'white' };
-                    board[4][2] = { type: 'golem', player: 'dark', shape: 'Χ', color: 'blue' };
-                    board[4][4] = { type: 'golem', player: 'dark', shape: 'Ω', color: 'orange' };
-                    board[6][2] = { type: 'golem', player: 'dark', shape: 'Λ', color: 'blue' };
-                    board[6][4] = { type: 'golem', player: 'dark', shape: 'Χ', color: 'orange' };
+                    // One dark piece to move, one light piece blocking one direction
+                    board[4][4] = { type: 'golem', player: 'dark', shape: 'Λ', color: 'white' };  // e4 - piece to move
+                    board[3][4] = { type: 'golem', player: 'light', shape: 'Χ', color: 'blue' };  // e5 - blocker (blocks ortho step north)
                     return board;
                 },
                 darkHand: [
                     { type: 'shape', value: 'Λ' },
-                    { type: 'color', value: 'blue' },
+                    { type: 'color', value: 'white' },
                     { type: 'shape', value: 'Ω' },
                 ],
                 darkResting: { type: 'color', value: 'orange' },
-                lightHand: [
-                    { type: 'shape', value: 'Χ' },
-                    { type: 'color', value: 'white' },
-                    { type: 'mirror', value: '◇' }
-                ],
+                lightHand: [],
                 lightResting: null,
                 darkSupply: { shadows: 1, masks: [] },
                 lightSupply: { shadows: 1, masks: [] },
                 currentPlayer: 'dark',
-                objectives: ['diag-forward', 'diag-backward', 'ortho-forward', 'ortho-backward', 'ortho-lateral']
+                objectives: ['ortho-step', 'diag-step']
             },
             // Capsule 6: Single Jump
             6: {
@@ -7817,30 +7801,13 @@
             const absRowDiff = Math.abs(rowDiff);
             const absColDiff = Math.abs(colDiff);
             
-            // Dark player moves "forward" by decreasing row (toward row 0)
             // Diagonal step: exactly 1 square diagonal
             if (absRowDiff === 1 && absColDiff === 1) {
-                if (rowDiff < 0) {
-                    // Diagonal forward
-                    completeTutorialObjective('diag-forward');
-                } else {
-                    // Diagonal backward
-                    completeTutorialObjective('diag-backward');
-                }
+                completeTutorialObjective('diag-step');
             }
             // Orthogonal step: exactly 2 squares in one direction
-            else if (absRowDiff === 2 && absColDiff === 0) {
-                if (rowDiff < 0) {
-                    // Forward (up for dark)
-                    completeTutorialObjective('ortho-forward');
-                } else {
-                    // Backward (down for dark)
-                    completeTutorialObjective('ortho-backward');
-                }
-            }
-            else if (absRowDiff === 0 && absColDiff === 2) {
-                // Lateral (left or right)
-                completeTutorialObjective('ortho-lateral');
+            else if ((absRowDiff === 2 && absColDiff === 0) || (absRowDiff === 0 && absColDiff === 2)) {
+                completeTutorialObjective('ortho-step');
             }
         }
 
@@ -7919,9 +7886,7 @@
         }
 
         function checkGlyphTutorialGolemSelection(row, col) {
-            // Only count if a glyph is selected (valid match)
-            if (!gameState.selectedGlyph) return;
-            
+            // Track unique golems selected (no need to check for glyph)
             const key = `${row},${col}`;
             tutorialSelectedGolems.add(key);
             
