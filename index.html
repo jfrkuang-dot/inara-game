@@ -8758,10 +8758,19 @@
                 // Open online modal and auto-join
                 const modal = document.getElementById('onlineModal');
                 modal.classList.add('show');
-                showOnlineStatus('Connecting to server...');
+                showOnlineJoining();
+                
+                // Clear the URL parameter so refresh doesn't re-join
+                window.history.replaceState({}, document.title, window.location.pathname);
                 
                 // Initialize peer, then auto-join
                 peer = new Peer();
+                
+                // Set a timeout for the whole process
+                const joinTimeout = setTimeout(() => {
+                    console.log('Auto-join timeout');
+                    showOnlineError('Could not connect to game. The host may have left.');
+                }, 20000); // 20 second timeout
                 
                 peer.on('open', () => {
                     console.log('Connected to PeerJS, auto-joining room:', roomCode);
@@ -8769,29 +8778,31 @@
                     isHost = false;
                     localPlayer = null;
                     
-                    showOnlineJoining();
-                    
                     conn = peer.connect('inara-' + roomCode, { reliable: true });
                     
                     conn.on('open', () => {
+                        clearTimeout(joinTimeout);
                         console.log('Connected to host!');
                         setupConnectionHandlers();
                         sendOnlineMessage({ type: 'requestGameState', playerName: localPlayerName });
                     });
                     
                     conn.on('error', (err) => {
+                        clearTimeout(joinTimeout);
                         console.error('Connection error:', err);
-                        showOnlineError('Could not connect to game.');
+                        showOnlineError('Could not connect to game. Check the link and try again.');
                     });
                 });
                 
                 peer.on('error', (err) => {
+                    clearTimeout(joinTimeout);
                     console.error('PeerJS error:', err);
-                    showOnlineError('Could not connect to server.');
+                    if (err.type === 'peer-unavailable') {
+                        showOnlineError('Game not found. The host may have left or the link is invalid.');
+                    } else {
+                        showOnlineError('Could not connect to server. Please try again.');
+                    }
                 });
-                
-                // Clear the URL parameter so refresh doesn't re-join
-                window.history.replaceState({}, document.title, window.location.pathname);
             }
         })();
 
@@ -9063,10 +9074,51 @@
             
             showOnlineJoining();
             
+            // Ensure peer is ready before connecting
+            if (!peer || peer.destroyed) {
+                peer = new Peer();
+                peer.on('open', () => {
+                    connectToHost(code);
+                });
+                peer.on('error', (err) => {
+                    console.error('PeerJS error:', err);
+                    if (err.type === 'peer-unavailable') {
+                        showOnlineError('Game not found. Check the code and try again.');
+                    } else {
+                        showOnlineError('Could not connect to server. Please try again.');
+                    }
+                });
+            } else if (!peer.open) {
+                // Peer exists but not yet open, wait for it
+                peer.on('open', () => {
+                    connectToHost(code);
+                });
+            } else {
+                // Peer is ready, connect immediately
+                connectToHost(code);
+            }
+        }
+        
+        function connectToHost(code) {
+            console.log('Attempting to connect to host:', code);
+            
+            // Set a timeout for connection
+            const connectionTimeout = setTimeout(() => {
+                if (!conn || !conn.open) {
+                    console.log('Connection timeout');
+                    showOnlineError('Could not connect to game. The host may have left.');
+                    if (conn) {
+                        conn.close();
+                        conn = null;
+                    }
+                }
+            }, 15000); // 15 second timeout
+            
             // Connect to the host
             conn = peer.connect('inara-' + code, { reliable: true });
             
             conn.on('open', () => {
+                clearTimeout(connectionTimeout);
                 console.log('Connected to host!');
                 setupConnectionHandlers();
                 
@@ -9075,8 +9127,9 @@
             });
             
             conn.on('error', (err) => {
+                clearTimeout(connectionTimeout);
                 console.error('Connection error:', err);
-                showOnlineError('Could not connect to game.');
+                showOnlineError('Could not connect to game. Check the code and try again.');
             });
         }
         
