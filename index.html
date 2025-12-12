@@ -2550,7 +2550,7 @@
                 <h3>Ending the Game</h3>
                 <p><strong>Sudden Death:</strong> The game ends immediately when one player moves a golem into their opponent's first row. That player wins!</p>
                 <p><strong>Extra Lives:</strong> Your opponent loses a life every time you complete a run to their back row. The golem that scores can still make captures and leave a shadow on that turn. Completing a run also returns that golem to your supply as a mask and a shadow. Bring their number of lives down to zero to win!</p>
-                <p>If a player cannot take any valid action (no glyphs allow movement or reactivation), the game ends in a <strong>draw</strong>.</p>
+                <p>If neither player can make a valid move, the player with more lives wins. If tied, the game is a draw.</p>
 
                 <h3>Symbol Reference</h3>
                 <p><strong>Shapes:</strong> Ω Moon, Χ Sand, Λ Peak</p>
@@ -3504,7 +3504,7 @@
                             <li>步行、跳跃，并连续向前推进</li>
                             <li>捕获以防守，重新激活以恢复</li>
                         </ul>
-                        <p style="margin-top: 12px;"><strong>平局：</strong>如果你的符文都不允许移动或重新激活，游戏以平局结束。</p>
+                        <p style="margin-top: 12px;"><strong>平局：</strong>如果双方都无法进行有效移动，拥有更多生命的玩家获胜。如果生命相同，则为平局。</p>
                         <button class="btn" onclick="closeTutorial(); showNewGameModal();" style="margin-top: 15px; width: 100%;">开始游戏</button>
                     </div>`
                 ]
@@ -3646,7 +3646,7 @@
                 <h3>Fin del Juego</h3>
                 <p><strong>Muerte Súbita:</strong> ¡El juego termina inmediatamente cuando un jugador mueve un golem a la primera fila de su oponente. Ese jugador gana!</p>
                 <p><strong>Vidas Extra:</strong> Tu oponente pierde una vida cada vez que completas una carrera a su fila trasera. El golem que anota aún puede hacer capturas y dejar una sombra en ese turno. Completar una carrera también devuelve ese golem a tu suministro como máscara y sombra. ¡Reduce sus vidas a cero para ganar!</p>
-                <p>Si un jugador no puede tomar ninguna acción válida (ningún glifo permite movimiento o reactivación), el juego termina en <strong>empate</strong>.</p>
+                <p>Si ningún jugador puede realizar un movimiento válido, el jugador con más vidas gana. Si están empatados, el juego termina en <strong>empate</strong>.</p>
 
                 <h3>Referencia de Símbolos</h3>
                 <p><strong>Formas:</strong> Ω Luna, Χ Arena, Λ Pico</p>
@@ -3864,7 +3864,7 @@
                             <li>Da pasos, salta y encadena tu camino hacia adelante</li>
                             <li>Captura para defender, reactiva para recuperar</li>
                         </ul>
-                        <p style="margin-top: 12px;"><strong>Empate:</strong> Si ninguno de tus glifos permite mover o reactivar, el juego termina en empate.</p>
+                        <p style="margin-top: 12px;"><strong>Empate:</strong> Si ningún jugador puede moverse, el que tenga más vidas gana. Si están igualados, es empate.</p>
                         <button class="btn" onclick="closeTutorial(); showNewGameModal();" style="margin-top: 15px; width: 100%;">Comenzar a Jugar</button>
                     </div>`
                 ]
@@ -5669,9 +5669,20 @@
 
             renderGame();
 
-            // Check for draw (no valid actions)
+            // Check for no valid actions
             if (!hasValidActions(gameState.currentPlayer)) {
-                endGame('draw', 'Draw - no valid moves available!');
+                // In lives mode, player with more lives wins
+                if (gameState.darkLives > 1 || gameState.lightLives > 1) {
+                    if (gameState.darkLives > gameState.lightLives) {
+                        endGame('dark', 'No valid moves - Dark wins with more lives!');
+                    } else if (gameState.lightLives > gameState.darkLives) {
+                        endGame('light', 'No valid moves - Light wins with more lives!');
+                    } else {
+                        endGame('draw', 'No valid moves - Draw (equal lives)!');
+                    }
+                } else {
+                    endGame('draw', 'Draw - no valid moves available!');
+                }
             }
             
             // Reset move timer for online games
