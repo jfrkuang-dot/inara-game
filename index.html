@@ -9008,6 +9008,20 @@
         initGame();
         loadLanguagePreference();
         
+        // PeerJS configuration - must be defined before any peer creation
+        const peerConfig = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' }
+                ]
+            },
+            debug: 1 // 0 = no logs, 1 = errors, 2 = warnings, 3 = all
+        };
+        
         // Check for room code in URL and auto-join
         (function checkUrlForRoom() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -9029,7 +9043,7 @@
                 window.history.replaceState({}, document.title, window.location.pathname);
                 
                 // Initialize peer, then auto-join
-                peer = new Peer();
+                peer = new Peer(peerConfig);
                 
                 // Set a timeout for the whole process
                 const joinTimeout = setTimeout(() => {
@@ -9325,8 +9339,8 @@
         }
         
         function initializePeer() {
-            // Create peer with random ID
-            peer = new Peer();
+            // Create peer with random ID and explicit config
+            peer = new Peer(peerConfig);
             
             peer.on('open', (id) => {
                 console.log('Connected to PeerJS server with ID:', id);
@@ -9380,7 +9394,7 @@
                 peer.destroy();
             }
             
-            peer = new Peer('inara-' + roomCode);
+            peer = new Peer('inara-' + roomCode, peerConfig);
             
             peer.on('open', () => {
                 console.log('Room created:', roomCode);
@@ -9475,7 +9489,7 @@
                 peer.destroy();
             }
             
-            peer = new Peer('inara-' + roomCode);
+            peer = new Peer('inara-' + roomCode, peerConfig);
             
             peer.on('open', () => {
                 console.log('Room created with loaded game:', roomCode);
@@ -9741,7 +9755,7 @@
             
             // Ensure peer is ready before connecting
             if (!peer || peer.destroyed) {
-                peer = new Peer();
+                peer = new Peer(peerConfig);
                 peer.on('open', () => {
                     connectToHost(code);
                 });
