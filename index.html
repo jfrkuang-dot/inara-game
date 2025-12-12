@@ -3041,6 +3041,14 @@
                         <button class="btn online-lives-btn" id="onlineLives0Btn" onclick="setOnlineLives(0)" style="width: 100%; background: var(--gold); font-size: 0.85rem;">Sudden Death</button>
                     </div>
                     
+                    <!-- Time indicator (greyed out for online) -->
+                    <div style="margin-bottom: 15px; opacity: 0.5;">
+                        <label style="display: block; margin-bottom: 8px; color: var(--silver); font-size: 0.9rem;">Time</label>
+                        <div style="padding: 10px; background: var(--slate); border-radius: 8px; color: var(--silver); font-size: 0.9rem;">
+                            No Limit
+                        </div>
+                    </div>
+                    
                     <button class="btn" onclick="createOnlineGame()" style="width: 100%;">
                         Create Game
                     </button>
@@ -9164,6 +9172,9 @@
             if (isHost) {
                 // Set lives from online selection
                 selectedLives = selectedOnlineLives;
+                
+                // Force untimed for online games
+                selectedTime = 0;
                 
                 // Host initializes the game
                 initGame();
