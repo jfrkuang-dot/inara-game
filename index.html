@@ -7786,6 +7786,14 @@
                 // Orientation lock not supported or denied - that's okay
             });
         }
+        
+        // Handle page visibility changes - reconnect peer if needed
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && peer && !peer.destroyed && peer.disconnected) {
+                console.log('Page visible again, reconnecting peer...');
+                peer.reconnect();
+            }
+        });
 
         // Fix zoom issues on orientation change
         window.addEventListener('orientationchange', () => {
@@ -8072,11 +8080,24 @@
                 showOnlineWaiting(roomCode);
             });
             
+            peer.on('disconnected', () => {
+                console.log('Disconnected from signaling server, attempting to reconnect...');
+                // Attempt to reconnect to the signaling server
+                if (peer && !peer.destroyed) {
+                    peer.reconnect();
+                }
+            });
+            
             peer.on('error', (err) => {
                 console.error('Error creating room:', err);
                 if (err.type === 'unavailable-id') {
                     // Room code already taken, try another
                     createOnlineGame();
+                } else if (err.type === 'disconnected' || err.type === 'network') {
+                    // Network issue, try to reconnect
+                    if (peer && !peer.destroyed) {
+                        peer.reconnect();
+                    }
                 } else {
                     showOnlineError('Could not create game. Please try again.');
                 }
