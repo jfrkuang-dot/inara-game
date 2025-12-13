@@ -880,8 +880,10 @@
             filter: brightness(1.1);
         }
 
-        .square.selectable {
-            box-shadow: inset 0 0 20px var(--highlight);
+        .square.selectable .piece {
+            box-shadow: 0 0 12px rgba(74, 222, 128, 0.8), 0 0 24px rgba(74, 222, 128, 0.5);
+            outline: 2px solid rgba(74, 222, 128, 0.7);
+            outline-offset: 2px;
         }
 
         .square.highlighted {
@@ -9574,15 +9576,15 @@
             gameState.moveTimer = selectedMoveTimer;
             gameState.moveTimeRemaining = selectedMoveTimer;
             
-            // Setup analysis data for this game
+            // Setup analysis data - preserve original initial state and move history
             analysisData = {
-                initialState: serializeGameState(),
-                moves: [],
-                currentMoveIndex: -1,
+                initialState: JSON.parse(JSON.stringify(data.initialState)),
+                moves: data.moves.map(m => JSON.parse(JSON.stringify(m))),
+                currentMoveIndex: data.moves.length - 1,
                 isAnalysisMode: false
             };
             
-            // Send state to opponent
+            // Send state to opponent (include move history for their analysis)
             const joinerSide = localPlayer === 'dark' ? 'light' : 'dark';
             sendOnlineMessage({
                 type: 'gameStart',
@@ -9593,7 +9595,9 @@
                 hostSide: localPlayer,
                 moveTimer: selectedMoveTimer,
                 resumedGame: true,
-                moveNumber: data.moves.length
+                moveNumber: data.moves.length,
+                initialState: data.initialState,
+                moveHistory: data.moves
             });
             
             updatePlayerNames();
@@ -9964,8 +9968,8 @@
                         localPlayerName = data.joinerName; // Host set our name
                     }
                     
-                    // Load the game state
-                    loadOnlineGameState(data.state);
+                    // Load the game state (pass full data for move history)
+                    loadOnlineGameState(data);
                     
                     // Update panel labels with names
                     updatePlayerNames();
@@ -10008,7 +10012,9 @@
             }
         }
         
-        function loadOnlineGameState(state) {
+        function loadOnlineGameState(data) {
+            const state = data.state;
+            
             // Initialize fresh game state
             gameState = createInitialState();
             
@@ -10037,13 +10043,24 @@
             gameState.moveTimer = state.moveTimer || 0;
             gameState.moveTimeRemaining = state.moveTimer || 0;
             
-            // Analysis data for replay
-            analysisData = {
-                initialState: serializeGameState(),
-                moves: [],
-                currentMoveIndex: -1,
-                isAnalysisMode: false
-            };
+            // Analysis data for replay - use history if this is a resumed game
+            if (data.initialState && data.moveHistory) {
+                // Resumed game - preserve full history
+                analysisData = {
+                    initialState: JSON.parse(JSON.stringify(data.initialState)),
+                    moves: data.moveHistory.map(m => JSON.parse(JSON.stringify(m))),
+                    currentMoveIndex: data.moveHistory.length - 1,
+                    isAnalysisMode: false
+                };
+            } else {
+                // New game - start fresh
+                analysisData = {
+                    initialState: serializeGameState(),
+                    moves: [],
+                    currentMoveIndex: -1,
+                    isAnalysisMode: false
+                };
+            }
             
             historyStack = [];
             renderGame();
