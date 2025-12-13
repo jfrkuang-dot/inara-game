@@ -991,10 +991,6 @@
             font-size: clamp(20px, 4vw, 28px);
             font-weight: 500;
             line-height: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
         }
 
         .shadow-piece {
@@ -2087,9 +2083,6 @@
 
             .piece-shape {
                 font-size: 16px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
 
             .shadow-piece {
@@ -2214,9 +2207,6 @@
 
             .piece-shape {
                 font-size: 14px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
             }
         }
 
@@ -3150,11 +3140,6 @@
         // === CONSTANTS ===
         const SHAPES = ['Ω', 'Χ', 'Λ']; // Moon, Sand, Peak
         const SHAPE_NAMES = { 'Ω': 'Moon', 'Χ': 'Sand', 'Λ': 'Peak' };
-        const SHAPE_DISPLAY = { 'Ω': '○', 'Χ': '✕', 'Λ': '▲' };
-        
-        function getDisplayShape(shape) {
-            return SHAPE_DISPLAY[shape] || shape;
-        }
         const COLORS = ['white', 'orange', 'blue'];
         const MIRROR = '◇';
         
@@ -4540,7 +4525,7 @@
                 
                 const shapeEl = document.createElement('div');
                 shapeEl.className = 'piece-shape';
-                shapeEl.textContent = getDisplayShape(piece.shape);
+                shapeEl.textContent = piece.shape;
                 shapeEl.style.color = getColorValue(piece.color);
                 el.appendChild(shapeEl);
 
@@ -4617,7 +4602,7 @@
                         // Show silvery shape
                         const shapeEl = document.createElement('div');
                         shapeEl.className = 'mirror-shape';
-                        shapeEl.textContent = getDisplayShape(resting.value);
+                        shapeEl.textContent = resting.value;
                         el.appendChild(shapeEl);
                     } else {
                         // Resting is also a mirror - show default diamond
@@ -4630,7 +4615,7 @@
             } else if (glyph.type === 'shape') {
                 const shapeEl = document.createElement('div');
                 shapeEl.className = 'glyph-shape';
-                shapeEl.textContent = getDisplayShape(glyph.value);
+                shapeEl.textContent = glyph.value;
                 el.appendChild(shapeEl);
             } else {
                 // Color glyph - solid fill
@@ -4794,7 +4779,7 @@
             visibleMasks.forEach(({ mask, index, validGlyphIndices, canReactivate }) => {
                 const el = document.createElement('div');
                 el.className = `mask-piece ${player}-mask`;
-                el.textContent = getDisplayShape(mask.shape);
+                el.textContent = mask.shape;
                 el.style.color = getColorValue(mask.color);
 
                 if (canReactivate) {
