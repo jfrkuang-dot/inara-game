@@ -6792,6 +6792,8 @@
                 
                 // 1. Can they move this piece directly? (check glyphs)
                 let canMoveDirect = false;
+                let canWinNow = false;
+                
                 for (const glyph of oppHand) {
                     const effectiveGlyph = glyph.type === 'mirror' && oppResting ? oppResting : glyph;
                     if (!effectiveGlyph) continue;
@@ -6805,7 +6807,58 @@
                     if (matches) {
                         canMoveDirect = true;
                         threatLevel += 30; // Direct threat
+                        
+                        // Check if they can WIN with this piece right now
+                        const moves = cpuGetValidMovesOnBoard(gameState.board, advanced.row, advanced.col, opponent);
+                        for (const m of moves) {
+                            if (m.row === ourGoalRow) {
+                                canWinNow = true;
+                                threatLevel += 500; // CRITICAL - they can win!
+                                break;
+                            }
+                        }
                         break;
+                    }
+                }
+                
+                // 1b. Even if they can't move THIS piece, check if it enables a winning jump
+                if (!canWinNow && distanceToGoal <= 2) {
+                    // Check if another piece can use this as stepping stone to win
+                    for (const other of oppPieces) {
+                        if (other.row === advanced.row && other.col === advanced.col) continue;
+                        
+                        // Can 'other' jump over 'advanced' to our goal?
+                        const diagDirs = [[direction, 1], [direction, -1]];
+                        for (const [dr, dc] of diagDirs) {
+                            if (advanced.row === other.row + dr && advanced.col === other.col + dc) {
+                                const landRow = other.row + 2 * dr;
+                                const landCol = other.col + 2 * dc;
+                                
+                                if (landRow === ourGoalRow && landCol >= 0 && landCol < 8) {
+                                    const landSpot = gameState.board[landRow][landCol];
+                                    if (!landSpot) {
+                                        // Can they move 'other'?
+                                        for (const glyph of oppHand) {
+                                            const effectiveGlyph = glyph.type === 'mirror' && oppResting ? oppResting : glyph;
+                                            if (!effectiveGlyph) continue;
+                                            
+                                            const matches = effectiveGlyph.type === 'color'
+                                                ? other.piece.color === effectiveGlyph.value
+                                                : effectiveGlyph.type === 'shape'
+                                                    ? other.piece.shape === effectiveGlyph.value
+                                                    : false;
+                                            
+                                            if (matches) {
+                                                canWinNow = true;
+                                                threatLevel += 400; // Critical stepping stone threat
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (canWinNow) break;
                     }
                 }
                 
@@ -6876,6 +6929,7 @@
                         piece: advanced.piece,
                         threatLevel,
                         canMoveDirect,
+                        canWinNow,
                         isSteppingStone: steppingStoneValue > 0
                     });
                 }
@@ -6903,12 +6957,140 @@
             
             return count;
         }
+        
+        // Check if player can respond to an enemy at (targetRow, targetCol) with a capture
+        // This requires:
+        // 1. A piece that can move adjacent to target
+        // 2. A supporting piece on the opposite side  
+        // 3. The moving piece shares NO traits with target (different shape AND different color)
+        // 4. Player has a glyph to move that piece
+        function cpuCanRespondWithCapture(board, targetRow, targetCol, targetPiece, player, hand, resting) {
+            if (!targetPiece || targetPiece.player === player) return false;
+            
+            const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            
+            for (const [dr, dc] of directions) {
+                const adjRow = targetRow + dr;
+                const adjCol = targetCol + dc;
+                const supportRow = targetRow - dr;
+                const supportCol = targetCol - dc;
+                
+                if (adjRow < 0 || adjRow >= 8 || adjCol < 0 || adjCol >= 8) continue;
+                if (supportRow < 0 || supportRow >= 8 || supportCol < 0 || supportCol >= 8) continue;
+                
+                // Need supporting piece on opposite side
+                const supportPiece = board[supportRow]?.[supportCol];
+                if (!supportPiece || supportPiece.player !== player || supportPiece.type !== 'golem') continue;
+                
+                // Adjacent square must be empty (to move there)
+                if (board[adjRow][adjCol] !== null) continue;
+                
+                // Find a piece that can reach adj and can capture target
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const piece = board[r][c];
+                        if (!piece || piece.player !== player || piece.type !== 'golem') continue;
+                        
+                        // Moving piece must NOT share traits with target
+                        if (piece.shape === targetPiece.shape || piece.color === targetPiece.color) continue;
+                        
+                        // Can this piece move to adj?
+                        const moves = cpuGetValidMovesOnBoard(board, r, c, player);
+                        if (!moves.some(m => m.row === adjRow && m.col === adjCol)) continue;
+                        
+                        // Do we have a glyph for this piece?
+                        for (const glyph of hand) {
+                            const effectiveGlyph = glyph.type === 'mirror' && resting ? resting : glyph;
+                            if (!effectiveGlyph) continue;
+                            
+                            const canMove = effectiveGlyph.type === 'color'
+                                ? piece.color === effectiveGlyph.value
+                                : effectiveGlyph.type === 'shape'
+                                    ? piece.shape === effectiveGlyph.value
+                                    : false;
+                            
+                            if (canMove) return true;
+                        }
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        // Check if a move sets up capture threat against enemy breakthrough squares
+        // Returns score based on how well this move defends goal row
+        function cpuMoveSetupsCaptureDefense(move, threats, player) {
+            if (move.type !== 'movement') return 0;
+            
+            let defenseScore = 0;
+            const ourGoalRow = player === 'dark' ? 7 : 0;
+            const opponent = player === 'dark' ? 'light' : 'dark';
+            const ourHand = player === 'dark' ? gameState.darkHand : gameState.lightHand;
+            const ourResting = player === 'dark' ? gameState.darkResting : gameState.lightResting;
+            
+            // Simulate board after our move
+            const newBoard = gameState.board.map(r => r.map(c => c ? {...c} : null));
+            const movingPiece = newBoard[move.from.row][move.from.col];
+            newBoard[move.from.row][move.from.col] = null;
+            newBoard[move.to.row][move.to.col] = movingPiece;
+            
+            // For each threat, check if this move helps us defend against it
+            for (const threat of threats) {
+                // Find where this threat could break through
+                const threatMoves = cpuGetValidMovesOnBoard(gameState.board, threat.row, threat.col, opponent);
+                
+                for (const tm of threatMoves) {
+                    if (tm.row !== ourGoalRow) continue; // Only care about breakthrough squares
+                    
+                    // Would we be able to capture them at this breakthrough square after our move?
+                    // We need to simulate: enemy at (tm.row, tm.col), can we respond?
+                    const hypotheticalBoard = newBoard.map(r => r.map(c => c ? {...c} : null));
+                    hypotheticalBoard[tm.row][tm.col] = threat.piece;
+                    
+                    // Check if we could capture at (tm.row, tm.col) with our next move
+                    // This requires checking if our moved piece (or another) can sandwich them
+                    const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+                    
+                    for (const [dr, dc] of directions) {
+                        const adjRow = tm.row + dr;
+                        const adjCol = tm.col + dc;
+                        const supportRow = tm.row - dr;
+                        const supportCol = tm.col - dc;
+                        
+                        if (adjRow < 0 || adjRow >= 8 || adjCol < 0 || adjCol >= 8) continue;
+                        if (supportRow < 0 || supportRow >= 8 || supportCol < 0 || supportCol >= 8) continue;
+                        
+                        const supportPiece = hypotheticalBoard[supportRow]?.[supportCol];
+                        if (!supportPiece || supportPiece.player !== player) continue;
+                        
+                        // Is adj empty (so we could move there)?
+                        if (hypotheticalBoard[adjRow][adjCol] !== null) continue;
+                        
+                        // Can our moved piece reach adj and capture the threat?
+                        const movedPieceMoves = cpuGetValidMovesOnBoard(hypotheticalBoard, move.to.row, move.to.col, player);
+                        
+                        if (movedPieceMoves.some(m => m.row === adjRow && m.col === adjCol)) {
+                            // Check trait compatibility
+                            if (movingPiece.shape !== threat.piece.shape && 
+                                movingPiece.color !== threat.piece.color) {
+                                defenseScore += 150; // Good defensive setup!
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return defenseScore;
+        }
 
         // Check if a move blocks or contests opponent's advanced pieces
         function cpuMoveContestsThreats(move, threats, player) {
             if (move.type !== 'movement') return 0;
             
             let contestScore = 0;
+            const ourGoalRow = player === 'dark' ? 7 : 0;
+            const opponent = player === 'dark' ? 'light' : 'dark';
             
             for (const threat of threats) {
                 // Does this move land adjacent to a threat? (potential capture setup)
@@ -6920,19 +7102,65 @@
                 }
                 
                 // Does this move block a path toward our goal?
-                const ourGoalRow = player === 'dark' ? 7 : 0;
                 if (move.to.col === threat.col && 
                     Math.abs(move.to.row - ourGoalRow) < Math.abs(threat.row - ourGoalRow)) {
                     contestScore += 20;
                 }
                 
                 // Does this move land on a square the threat could reach?
-                const threatMoves = cpuGetValidMovesOnBoard(gameState.board, threat.row, threat.col, 
-                    player === 'dark' ? 'light' : 'dark');
+                const threatMoves = cpuGetValidMovesOnBoard(gameState.board, threat.row, threat.col, opponent);
                 for (const tm of threatMoves) {
                     if (tm.row === move.to.row && tm.col === move.to.col) {
                         contestScore += 15; // We're taking a square they wanted
+                        
+                        // HUGE bonus if we're blocking their winning move
+                        if (tm.row === ourGoalRow) {
+                            contestScore += 500;
+                        }
                         break;
+                    }
+                }
+                
+                // Check if this move blocks diagonal jump paths to goal row
+                // A piece 2 rows from goal can jump diagonally to win
+                if (threat.distanceToGoal === 2) {
+                    // Check both diagonal landing spots
+                    const jumpRow = ourGoalRow;
+                    const jumpCols = [threat.col - 2, threat.col + 2];
+                    
+                    for (const jumpCol of jumpCols) {
+                        if (jumpCol >= 0 && jumpCol < 8) {
+                            // Check if the middle square (stepping stone) is occupied by opponent
+                            const midRow = threat.row + (opponent === 'dark' ? -1 : 1);
+                            const midCol = (threat.col + jumpCol) / 2;
+                            const midPiece = gameState.board[midRow]?.[midCol];
+                            
+                            if (midPiece?.player === opponent) {
+                                // There's a stepping stone - can they land on goal?
+                                const landPiece = gameState.board[jumpRow][jumpCol];
+                                if (!landPiece) {
+                                    // They can win via this diagonal jump!
+                                    // Check if our move blocks the landing
+                                    if (move.to.row === jumpRow && move.to.col === jumpCol) {
+                                        contestScore += 400;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Check orthogonal 2-step breakthrough threats
+                if (threat.distanceToGoal === 2) {
+                    const stepRow = threat.row + (opponent === 'dark' ? -1 : 1);
+                    const stepPiece = gameState.board[stepRow]?.[threat.col];
+                    
+                    // If the square in front is empty or has our piece (can step through)
+                    if (!stepPiece || stepPiece.player === player) {
+                        const goalSpot = gameState.board[ourGoalRow][threat.col];
+                        if (!goalSpot && move.to.row === ourGoalRow && move.to.col === threat.col) {
+                            contestScore += 400;
+                        }
                     }
                 }
             }
@@ -6962,7 +7190,10 @@
             const totalThreatLevel = threats.reduce((sum, t) => sum + t.threatLevel, 0);
             const hasActiveThreats = threats.some(t => t.canMoveDirect || t.isSteppingStone);
             const hasUrgentThreat = threats.some(t => t.distanceToGoal <= 2);
+            const hasCriticalThreat = threats.some(t => t.canWinNow);
             
+            // Critical mode: opponent can win next turn!
+            const criticalMode = hasCriticalThreat;
             // Panic if: high threat level with active threats, and we're not counter-attacking
             const panicMode = totalThreatLevel >= 60 && hasActiveThreats && ourPenetration <= 1;
             const urgentMode = hasUrgentThreat;
@@ -6974,18 +7205,35 @@
             const scoredMoves = moves.map(move => {
                 let score = cpuMoveScore3Ply(move, player);
                 
-                // In panic/urgent mode, boost moves that contest threats
-                if (panicMode || urgentMode) {
+                // Add defensive setup scoring - moves that position for capture response
+                if (threats.length > 0) {
+                    const defenseScore = cpuMoveSetupsCaptureDefense(move, threats, player);
+                    score += defenseScore;
+                }
+                
+                // In critical/panic/urgent mode, boost moves that contest threats
+                if (criticalMode || panicMode || urgentMode) {
                     const contestScore = cpuMoveContestsThreats(move, threats, player);
-                    score += contestScore * (urgentMode ? 3 : 2);
+                    
+                    // Critical mode gets highest multiplier
+                    const multiplier = criticalMode ? 5 : (urgentMode ? 3 : 2);
+                    score += contestScore * multiplier;
                     
                     // Penalize pure advancement when we should be defending
                     if (contestScore === 0 && move.type === 'movement') {
                         const isAdvancing = player === 'dark' 
                             ? move.to.row < move.from.row 
                             : move.to.row > move.from.row;
-                        if (isAdvancing && panicMode) {
-                            score -= 50; // Don't just advance when under attack!
+                        if (isAdvancing) {
+                            // Check if this move at least sets up defense
+                            const defenseScore = cpuMoveSetupsCaptureDefense(move, threats, player);
+                            if (defenseScore === 0) {
+                                if (criticalMode) {
+                                    score -= 200; // Don't advance when opponent can win!
+                                } else if (panicMode) {
+                                    score -= 50; // Don't just advance when under attack!
+                                }
+                            }
                         }
                     }
                 }
