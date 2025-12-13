@@ -5371,9 +5371,16 @@
             if (gameState.board[row][col]) {
                 return; // Square occupied (shouldn't happen but safety check)
             }
+            
+            const supply = player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+            
+            // Safety check: don't go negative
+            if (supply.shadows <= 0) {
+                console.warn('Attempted to place shadow with none available');
+                return;
+            }
 
             gameState.board[row][col] = { type: 'shadow', player };
-            const supply = player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
             supply.shadows--;
 
             if (player === 'light') {
@@ -9684,20 +9691,38 @@
                 }
                 
             } else if (moveData.type === 'reactivation') {
-                // Handle reactivation
+                // Handle reactivation - places golem on existing shadow, consumes mask
                 const supply = gameState.currentPlayer === 'dark' ? gameState.darkSupply : gameState.lightSupply;
                 const maskIndex = supply.masks.findIndex(m => 
                     m.shape === moveData.mask.shape && m.color === moveData.mask.color
                 );
                 if (maskIndex !== -1) {
                     const mask = supply.masks.splice(maskIndex, 1)[0];
-                    supply.shadows--;
+                    // Note: shadow is already on board, we just replace it with golem
+                    // No shadow counter change needed
                     gameState.board[moveData.position.row][moveData.position.col] = {
                         type: 'golem',
                         player: gameState.currentPlayer,
                         shape: mask.shape,
                         color: mask.color
                     };
+                }
+                
+                // Handle captures from reactivation
+                if (moveData.captures) {
+                    for (const cap of moveData.captures) {
+                        const captured = gameState.board[cap.row][cap.col];
+                        if (captured) {
+                            gameState.board[cap.row][cap.col] = null;
+                            const ownerSupply = captured.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                            if (captured.type === 'shadow') {
+                                ownerSupply.shadows++;
+                            } else if (captured.type === 'golem') {
+                                ownerSupply.shadows++;
+                                ownerSupply.masks.push({ shape: captured.shape, color: captured.color });
+                            }
+                        }
+                    }
                 }
                 
                 // Handle glyph exchange for reactivation
@@ -10046,7 +10071,7 @@
                 gameState.selectedGlyph = { player: gameState.currentPlayer, index: glyphIndex };
                 gameState.selectedPiece = { row: moveData.from.row, col: moveData.from.col };
                 
-                // Set shadow primed if needed
+                // Set shadow primed ONLY if shadow was placed - movePiece will handle placement
                 gameState.shadowPrimed = moveData.shadowPlaced !== null;
                 
                 // Execute the move
@@ -10067,7 +10092,13 @@
                 );
                 
                 if (glyphIndex === -1 || maskIndex === -1) {
-                    console.error('Could not find glyph or mask for online reactivation');
+                    console.error('Could not find glyph or mask for online reactivation', {
+                        glyphIndex, maskIndex,
+                        searchedGlyph: moveData.glyphUsed,
+                        searchedMask: moveData.mask,
+                        hand: hand,
+                        masks: supply.masks
+                    });
                     return;
                 }
                 
