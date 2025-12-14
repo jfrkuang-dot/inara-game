@@ -5082,12 +5082,6 @@
         let activeChoiceBubble = null;
 
         function showGlyphChoiceBubble(row, col, targetRow, targetCol, matchingGlyphIndices) {
-            // Only show on desktop
-            if (window.innerWidth < 768) {
-                flashChoiceRequiredGlyphs();
-                return;
-            }
-
             // Remove any existing bubble
             hideGlyphChoiceBubble();
 
