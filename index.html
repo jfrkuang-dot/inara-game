@@ -812,9 +812,9 @@
             transform: scale(1.1);
         }
 
-        /* Glyph choice bubble for desktop */
+        /* Glyph choice bubble */
         .glyph-choice-bubble {
-            position: absolute;
+            position: fixed;
             display: flex;
             gap: 6px;
             padding: 8px;
@@ -822,7 +822,7 @@
             border: 2px solid var(--gold);
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            z-index: 100;
+            z-index: 1000;
         }
 
         .glyph-choice-bubble::after {
@@ -5113,36 +5113,33 @@
                 bubble.appendChild(glyphEl);
             });
 
-            // Add to board container for positioning
-            const boardContainer = board.parentElement;
-            boardContainer.style.position = 'relative';
-            boardContainer.appendChild(bubble);
+            // Use fixed positioning for reliability
+            bubble.style.position = 'fixed';
+            document.body.appendChild(bubble);
 
-            // Calculate position - prefer above, fall back to below
+            // Calculate position after adding to DOM
             const bubbleRect = bubble.getBoundingClientRect();
-            const squareRelativeLeft = squareRect.left - boardRect.left;
-            const squareRelativeTop = squareRect.top - boardRect.top;
-            const squareCenterX = squareRelativeLeft + squareRect.width / 2;
-
+            const squareCenterX = squareRect.left + squareRect.width / 2;
+            
             // Center horizontally on the square
             let left = squareCenterX - bubbleRect.width / 2;
-            // Keep within board bounds
-            left = Math.max(0, Math.min(left, boardRect.width - bubbleRect.width));
+            
+            // Keep bubble within viewport horizontally
+            left = Math.max(8, Math.min(left, window.innerWidth - bubbleRect.width - 8));
 
-            // Check if there's room above
-            const spaceAbove = squareRect.top - boardRect.top;
-            const spaceBelow = boardRect.bottom - squareRect.bottom;
+            // Check if there's room above the square
+            const spaceAbove = squareRect.top;
+
+            bubble.style.left = left + 'px';
 
             if (spaceAbove >= bubbleRect.height + 15) {
                 // Position above
                 bubble.classList.add('above');
-                bubble.style.left = left + 'px';
-                bubble.style.top = (squareRelativeTop - bubbleRect.height - 10) + 'px';
+                bubble.style.top = (squareRect.top - bubbleRect.height - 10) + 'px';
             } else {
                 // Position below
                 bubble.classList.add('below');
-                bubble.style.left = left + 'px';
-                bubble.style.top = (squareRelativeTop + squareRect.height + 10) + 'px';
+                bubble.style.top = (squareRect.bottom + 10) + 'px';
             }
 
             activeChoiceBubble = bubble;
