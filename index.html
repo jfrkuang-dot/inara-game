@@ -7629,7 +7629,9 @@
         
         function cpuGetMoveV7() {
             const player = gameState.currentPlayer;
+            const opponent = player === 'dark' ? 'light' : 'dark';
             const goalRow = player === 'dark' ? 0 : 7;
+            const oppGoalRow = opponent === 'dark' ? 0 : 7;
             
             const moves = getCpuLegalMoves(player);
             if (moves.length === 0) return null;
@@ -7641,7 +7643,119 @@
                 }
             }
             
-            // 2. Score all moves using minimax (depth 2: my move, their response)
+            // 2. Find opponent's winning pieces (pieces that can reach goal)
+            const currentState = v7CloneState();
+            const oppWinningPieces = v7FindWinningPieces(currentState, opponent);
+            
+            if (oppWinningPieces.length > 0) {
+                // EMERGENCY: Opponent can win! Find disruptive moves
+                const disruptiveMoves = [];
+                
+                for (const move of moves) {
+                    const simState = v7CloneState();
+                    const movingPiece = move.type === 'movement' 
+                        ? simState.board[move.from.row][move.from.col]
+                        : null;
+                    
+                    // Apply move
+                    v7ApplyMove(simState, move, player);
+                    
+                    // Check if opponent can still win after our move
+                    const oppCanStillWin = v7CanPlayerWin(simState, opponent);
+                    
+                    if (!oppCanStillWin) {
+                        // This move stops their win somehow (capture, etc)
+                        disruptiveMoves.push({ move, score: 1000, reason: 'stops_win' });
+                        continue;
+                    }
+                    
+                    // Check if we captured one of their winning pieces
+                    let capturedWinner = false;
+                    for (const wp of oppWinningPieces) {
+                        const pieceStillThere = simState.board[wp.row]?.[wp.col];
+                        if (!pieceStillThere || pieceStillThere.player !== opponent) {
+                            capturedWinner = true;
+                            break;
+                        }
+                    }
+                    
+                    if (capturedWinner) {
+                        disruptiveMoves.push({ move, score: 800, reason: 'captured_winner' });
+                        continue;
+                    }
+                    
+                    // Check if we're threatening to win ourselves (forcing response)
+                    const ourWinningPiecesAfter = v7FindWinningPieces(simState, player);
+                    if (ourWinningPiecesAfter.length > 0) {
+                        disruptiveMoves.push({ move, score: 600, reason: 'counter_threat' });
+                        continue;
+                    }
+                    
+                    // Check if we're setting up a capture on their winning piece
+                    if (move.type === 'movement' && movingPiece) {
+                        for (const wp of oppWinningPieces) {
+                            const captureSetup = v7CheckCaptureSetup(simState, wp.row, wp.col, player, movingPiece, move.to);
+                            if (captureSetup) {
+                                disruptiveMoves.push({ move, score: 400, reason: 'capture_setup' });
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (disruptiveMoves.length > 0) {
+                    disruptiveMoves.sort((a, b) => b.score - a.score);
+                    return disruptiveMoves[0].move;
+                }
+                
+                // No good disruption found — we're likely losing
+                // DESPERATION MODE: At least try to create our own winning threat
+                // or advance our most forward piece
+                const myGoalRow = player === 'dark' ? 0 : 7;
+                const myDirection = player === 'dark' ? -1 : 1;
+                
+                let bestDesperationMove = null;
+                let bestDesperationScore = -Infinity;
+                
+                for (const move of moves) {
+                    if (move.type !== 'movement') continue;
+                    
+                    let score = 0;
+                    
+                    // Bonus for advancing toward goal
+                    const fromDist = Math.abs(move.from.row - myGoalRow);
+                    const toDist = Math.abs(move.to.row - myGoalRow);
+                    if (toDist < fromDist) {
+                        score += (fromDist - toDist) * 20;
+                    }
+                    
+                    // Big bonus if this move reaches goal (mutual breakthrough)
+                    if (move.to.row === myGoalRow) {
+                        score += 500;
+                    }
+                    
+                    // Bonus for capturing something
+                    const simState = v7CloneState();
+                    const movingPiece = simState.board[move.from.row][move.from.col];
+                    if (movingPiece) {
+                        simState.board[move.to.row][move.to.col] = movingPiece;
+                        simState.board[move.from.row][move.from.col] = null;
+                        const captures = v7EvaluateCapturesAt(simState, move.to.row, move.to.col, movingPiece, player);
+                        score += captures.value;
+                    }
+                    
+                    if (score > bestDesperationScore) {
+                        bestDesperationScore = score;
+                        bestDesperationMove = move;
+                    }
+                }
+                
+                if (bestDesperationMove) {
+                    return bestDesperationMove;
+                }
+            }
+            
+            // 3. Normal move scoring
             const scoredMoves = moves.map(move => {
                 const score = v7EvaluateMove(move, player, 2);
                 return { move, score };
@@ -7656,35 +7770,172 @@
             return bestMoves[Math.floor(Math.random() * bestMoves.length)].move;
         }
         
+        // Find all pieces that can reach the goal row
+        function v7FindWinningPieces(state, player) {
+            const goalRow = player === 'dark' ? 0 : 7;
+            const hand = player === 'dark' ? state.darkHand : state.lightHand;
+            const resting = player === 'dark' ? state.darkResting : state.lightResting;
+            
+            const winningPieces = [];
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = state.board[row][col];
+                    if (!piece || piece.player !== player || piece.type !== 'golem') continue;
+                    
+                    // Can we move this piece?
+                    if (!v7CanMovePiece(piece, hand, resting)) continue;
+                    
+                    // Can this piece reach the goal?
+                    const moves = v7GetValidMoves(state.board, row, col);
+                    for (const m of moves) {
+                        if (m.row === goalRow) {
+                            winningPieces.push({ row, col, piece });
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            return winningPieces;
+        }
+        
+        // Check if we're setting up a capture on enemy piece at (targetRow, targetCol)
+        function v7CheckCaptureSetup(state, targetRow, targetCol, player, movingPiece, moveTo) {
+            // After our move, check if we can capture the target next turn
+            // We need: our piece on one side, ability to move another piece to the other side
+            
+            const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            const hand = player === 'dark' ? state.darkHand : state.lightHand;
+            const resting = player === 'dark' ? state.darkResting : state.lightResting;
+            
+            for (const [dr, dc] of dirs) {
+                const side1Row = targetRow + dr;
+                const side1Col = targetCol + dc;
+                const side2Row = targetRow - dr;
+                const side2Col = targetCol - dc;
+                
+                if (side1Row < 0 || side1Row > 7 || side1Col < 0 || side1Col > 7) continue;
+                if (side2Row < 0 || side2Row > 7 || side2Col < 0 || side2Col > 7) continue;
+                
+                // Check if our move puts us on one side
+                const weAreOnSide1 = moveTo.row === side1Row && moveTo.col === side1Col;
+                const weAreOnSide2 = moveTo.row === side2Row && moveTo.col === side2Col;
+                
+                if (!weAreOnSide1 && !weAreOnSide2) continue;
+                
+                const ourSide = weAreOnSide1 ? { row: side1Row, col: side1Col } : { row: side2Row, col: side2Col };
+                const otherSide = weAreOnSide1 ? { row: side2Row, col: side2Col } : { row: side1Row, col: side1Col };
+                
+                // Is the other side empty? (so a piece could move there)
+                const otherSidePiece = state.board[otherSide.row][otherSide.col];
+                if (otherSidePiece) continue; // Blocked
+                
+                // Can any of our pieces reach the other side?
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const p = state.board[r][c];
+                        if (!p || p.player !== player || p.type !== 'golem') continue;
+                        if (r === moveTo.row && c === moveTo.col) continue; // Skip piece we just moved
+                        
+                        // Can we move this piece?
+                        if (!v7CanMovePiece(p, hand, resting)) continue;
+                        
+                        // Can it reach the other side?
+                        const pMoves = v7GetValidMoves(state.board, r, c);
+                        for (const pm of pMoves) {
+                            if (pm.row === otherSide.row && pm.col === otherSide.col) {
+                                // Can this piece capture the target?
+                                const target = state.board[targetRow][targetCol];
+                                if (target && target.type === 'golem') {
+                                    if (p.shape !== target.shape && p.color !== target.color) {
+                                        return true; // Capture setup!
+                                    }
+                                } else if (target && target.type === 'shadow') {
+                                    return true; // Can capture shadow
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
         // Evaluate a move by simulating it and opponent's best response
         function v7EvaluateMove(move, player, depth) {
             // Create a simulation state
             const simState = v7CloneState();
             
+            // Check if opponent can win BEFORE our move
+            const opponent = player === 'dark' ? 'light' : 'dark';
+            const oppGoalRow = opponent === 'dark' ? 0 : 7;
+            const oppCanWinBefore = v7CanPlayerWin(v7CloneState(), opponent);
+            
+            // Evaluate captures we'll make with this move BEFORE applying
+            let captureBonus = 0;
+            if (move.type === 'movement') {
+                const movingPiece = gameState.board[move.from.row][move.from.col];
+                if (movingPiece) {
+                    // Temporarily place piece to evaluate captures
+                    const tempState = v7CloneState();
+                    tempState.board[move.to.row][move.to.col] = movingPiece;
+                    tempState.board[move.from.row][move.from.col] = null;
+                    
+                    const captures = v7EvaluateCapturesAt(tempState, move.to.row, move.to.col, movingPiece, player);
+                    captureBonus = captures.value;
+                    
+                    // Multi-capture bonus
+                    if (captures.count >= 2) {
+                        captureBonus += captures.count * 20; // Extra bonus for multi-captures
+                    }
+                }
+            }
+            
             // Apply our move
             v7ApplyMove(simState, move, player);
             
-            // If depth exhausted, just evaluate position
+            // Check threat level at our new position
+            if (move.type === 'movement') {
+                const ourPiece = simState.board[move.to.row][move.to.col];
+                if (ourPiece) {
+                    const threatValue = v7EvaluateThreatsAt(simState, move.to.row, move.to.col, ourPiece, player);
+                    if (threatValue > 0) {
+                        // We're in danger - but is it worth it?
+                        if (captureBonus < threatValue) {
+                            // We lose more than we gain
+                            return -threatValue + captureBonus;
+                        }
+                        // Otherwise, the trade might be worth it - continue evaluation
+                    }
+                }
+            }
+            
+            // If depth exhausted, add capture bonus and evaluate position
             if (depth <= 1) {
-                return v7EvaluatePosition(simState, player);
+                return v7EvaluatePosition(simState, player) + captureBonus;
             }
             
             // Find opponent's best response
-            const opponent = player === 'dark' ? 'light' : 'dark';
             const opponentMoves = v7GetLegalMoves(simState, opponent);
             
             if (opponentMoves.length === 0) {
                 // Opponent has no moves - very good for us
-                return 1000;
+                return 1000 + captureBonus;
             }
             
-            // Check if opponent can win
-            const oppGoalRow = opponent === 'dark' ? 0 : 7;
-            for (const oppMove of opponentMoves) {
-                if (oppMove.type === 'movement' && oppMove.to.row === oppGoalRow) {
-                    // Opponent can win - this is bad (but not if we just won, handled above)
-                    return -1000;
-                }
+            // Check if opponent can win after our move
+            const oppCanWinAfter = v7CanPlayerWin(simState, opponent);
+            
+            if (oppCanWinBefore && !oppCanWinAfter) {
+                // Great! Our move blocked their win
+                return 500 + captureBonus;
+            }
+            
+            if (oppCanWinAfter) {
+                // They can win and we didn't stop them - terrible move
+                return -1000;
             }
             
             // Find opponent's best move (maximizing their position = minimizing ours)
@@ -7696,7 +7947,91 @@
                 worstForUs = Math.min(worstForUs, positionScore);
             }
             
-            return worstForUs;
+            return worstForUs + captureBonus;
+        }
+        
+        // Check if a player can win on their next move
+        function v7CanPlayerWin(state, player) {
+            const goalRow = player === 'dark' ? 0 : 7;
+            const hand = player === 'dark' ? state.darkHand : state.lightHand;
+            const resting = player === 'dark' ? state.darkResting : state.lightResting;
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = state.board[row][col];
+                    if (!piece || piece.player !== player || piece.type !== 'golem') continue;
+                    
+                    // Can we move this piece?
+                    if (!v7CanMovePiece(piece, hand, resting)) continue;
+                    
+                    // Can this piece reach the goal?
+                    const moves = v7GetValidMoves(state.board, row, col);
+                    for (const m of moves) {
+                        if (m.row === goalRow) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+        
+        // Check if a piece at (row, col) can be captured by opponent
+        function v7CheckCaptureDanger(state, row, col, player) {
+            const opponent = player === 'dark' ? 'light' : 'dark';
+            const ourPiece = state.board[row][col];
+            if (!ourPiece) return false;
+            
+            const oppHand = opponent === 'dark' ? state.darkHand : state.lightHand;
+            const oppResting = opponent === 'dark' ? state.darkResting : state.lightResting;
+            
+            // Check all 4 directions for custodian capture threat
+            const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            
+            for (const [dr, dc] of dirs) {
+                const supportRow = row + dr;
+                const supportCol = col + dc;
+                const attackLandRow = row - dr;
+                const attackLandCol = col - dc;
+                
+                if (supportRow < 0 || supportRow > 7 || supportCol < 0 || supportCol > 7) continue;
+                if (attackLandRow < 0 || attackLandRow > 7 || attackLandCol < 0 || attackLandCol > 7) continue;
+                
+                const supportPiece = state.board[supportRow][supportCol];
+                const attackLand = state.board[attackLandRow][attackLandCol];
+                
+                // Need opponent support piece
+                if (!supportPiece || supportPiece.player !== opponent) continue;
+                
+                // Attack landing must be empty
+                if (attackLand) continue;
+                
+                // Can any opponent piece reach attackLand and capture us?
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const attacker = state.board[r][c];
+                        if (!attacker || attacker.player !== opponent || attacker.type !== 'golem') continue;
+                        
+                        // Can they capture us? (different shape AND color)
+                        if (ourPiece.type === 'golem') {
+                            if (attacker.shape === ourPiece.shape || attacker.color === ourPiece.color) continue;
+                        }
+                        
+                        // Can they move this piece?
+                        if (!v7CanMovePiece(attacker, oppHand, oppResting)) continue;
+                        
+                        // Can they reach the attack position?
+                        const moves = v7GetValidMoves(state.board, r, c);
+                        for (const m of moves) {
+                            if (m.row === attackLandRow && m.col === attackLandCol) {
+                                return true; // We can be captured!
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return false;
         }
         
         // Clone the current game state for simulation
@@ -7858,6 +8193,136 @@
             }
         }
         
+        // Evaluate captures from landing at a position (without modifying state)
+        // Returns { count, value, shadowCascade } where value accounts for piece importance
+        function v7EvaluateCapturesAt(state, row, col, movingPiece, player) {
+            const opponent = player === 'dark' ? 'light' : 'dark';
+            const oppGoalRow = opponent === 'dark' ? 0 : 7;
+            const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            
+            let count = 0;
+            let value = 0;
+            let shadowCascade = false;
+            
+            for (const [dr, dc] of directions) {
+                const enemyRow = row + dr;
+                const enemyCol = col + dc;
+                const supportRow = row + dr * 2;
+                const supportCol = col + dc * 2;
+                
+                if (enemyRow < 0 || enemyRow > 7 || enemyCol < 0 || enemyCol > 7) continue;
+                if (supportRow < 0 || supportRow > 7 || supportCol < 0 || supportCol > 7) continue;
+                
+                const enemyPiece = state.board[enemyRow][enemyCol];
+                const supportPiece = state.board[supportRow][supportCol];
+                
+                if (!enemyPiece || !supportPiece) continue;
+                if (enemyPiece.player === player) continue; // Not an enemy
+                if (supportPiece.player !== player) continue; // No support
+                
+                // Check capture validity
+                if (enemyPiece.type === 'golem') {
+                    if (movingPiece.shape === enemyPiece.shape) continue;
+                    if (movingPiece.color === enemyPiece.color) continue;
+                    
+                    count++;
+                    
+                    // Value based on how advanced the piece is
+                    const distToGoal = Math.abs(enemyRow - oppGoalRow);
+                    const advancementValue = (7 - distToGoal) * 10; // 0-70 based on position
+                    value += 40 + advancementValue; // Base 40 + position bonus
+                    
+                } else if (enemyPiece.type === 'shadow') {
+                    count++;
+                    value += 30; // Shadow capture
+                    shadowCascade = true; // Will trigger cascade!
+                }
+            }
+            
+            // Shadow cascade bonus - all opponent shadows get removed
+            if (shadowCascade) {
+                let cascadeCount = 0;
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const p = state.board[r][c];
+                        if (p?.type === 'shadow' && p.player === opponent) {
+                            cascadeCount++;
+                        }
+                    }
+                }
+                // Additional shadows beyond the first one we captured
+                value += (cascadeCount - 1) * 25;
+            }
+            
+            return { count, value, shadowCascade };
+        }
+        
+        // Check what captures opponent could make against us at a position
+        function v7EvaluateThreatsAt(state, row, col, ourPiece, player) {
+            const opponent = player === 'dark' ? 'light' : 'dark';
+            const myGoalRow = player === 'dark' ? 0 : 7;
+            const oppHand = opponent === 'dark' ? state.darkHand : state.lightHand;
+            const oppResting = opponent === 'dark' ? state.darkResting : state.lightResting;
+            
+            const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            let maxThreat = 0;
+            
+            for (const [dr, dc] of directions) {
+                const supportRow = row + dr;
+                const supportCol = col + dc;
+                const attackLandRow = row - dr;
+                const attackLandCol = col - dc;
+                
+                if (supportRow < 0 || supportRow > 7 || supportCol < 0 || supportCol > 7) continue;
+                if (attackLandRow < 0 || attackLandRow > 7 || attackLandCol < 0 || attackLandCol > 7) continue;
+                
+                const supportPiece = state.board[supportRow][supportCol];
+                const attackLand = state.board[attackLandRow][attackLandCol];
+                
+                // Need opponent support
+                if (!supportPiece || supportPiece.player !== opponent) continue;
+                // Attack land must be empty
+                if (attackLand) continue;
+                
+                // Can any opponent piece capture us from attackLand?
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const attacker = state.board[r][c];
+                        if (!attacker || attacker.player !== opponent || attacker.type !== 'golem') continue;
+                        
+                        // Can they capture us?
+                        if (ourPiece.type === 'golem') {
+                            if (attacker.shape === ourPiece.shape || attacker.color === ourPiece.color) continue;
+                        }
+                        
+                        // Can they move?
+                        if (!v7CanMovePiece(attacker, oppHand, oppResting)) continue;
+                        
+                        // Can they reach attack position?
+                        const moves = v7GetValidMoves(state.board, r, c);
+                        for (const m of moves) {
+                            if (m.row === attackLandRow && m.col === attackLandCol) {
+                                // Calculate how valuable our piece is
+                                const distToGoal = Math.abs(row - myGoalRow);
+                                const ourValue = 40 + (7 - distToGoal) * 10;
+                                
+                                // But also check if THEY could multi-capture
+                                // (This is the key insight - one attack might get multiple pieces)
+                                const theirCaptures = v7EvaluateCapturesAt(
+                                    state, attackLandRow, attackLandCol, attacker, opponent
+                                );
+                                
+                                const threat = Math.max(ourValue, theirCaptures.value);
+                                maxThreat = Math.max(maxThreat, threat);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return maxThreat;
+        }
+        
         // Get legal moves for a simulation state
         function v7GetLegalMoves(state, player) {
             const moves = [];
@@ -7981,8 +8446,9 @@
                     const midPiece = board[midR][midC];
                     const landPiece = board[landR][landC];
                     
-                    // Must jump over a piece, land on empty
+                    // Must jump over OWN piece, land on empty
                     if (!midPiece) continue;
+                    if (midPiece.player !== piece.player) continue; // Can only jump over own pieces
                     if (landPiece) continue;
                     
                     const key = `${landR},${landC}`;
@@ -8004,12 +8470,14 @@
             const opponent = player === 'dark' ? 'light' : 'dark';
             const myGoalRow = player === 'dark' ? 0 : 7;
             const oppGoalRow = opponent === 'dark' ? 0 : 7;
+            const myDirection = player === 'dark' ? -1 : 1;
             
             let score = 0;
             
-            // Find all pieces
+            // Find all pieces and shadows
             const myPieces = [];
             const oppPieces = [];
+            const myShadows = [];
             
             for (let row = 0; row < 8; row++) {
                 for (let col = 0; col < 8; col++) {
@@ -8020,6 +8488,8 @@
                         } else {
                             oppPieces.push({ row, col, piece });
                         }
+                    } else if (piece?.type === 'shadow' && piece.player === player) {
+                        myShadows.push({ row, col });
                     }
                 }
             }
@@ -8047,20 +8517,25 @@
                 oppBestTurnDistance = Math.min(oppBestTurnDistance, turnDist);
             }
             
-            // Turn distance advantage (lower is better, so opponent's minus ours)
-            // Scale significantly - being closer to winning is very valuable
+            // Turn distance advantage - weighted heavily
             if (myBestTurnDistance < Infinity) {
-                score += (10 - myBestTurnDistance) * 30;
+                score += (10 - myBestTurnDistance) * 40;
             }
             if (oppBestTurnDistance < Infinity) {
-                score -= (10 - oppBestTurnDistance) * 30;
+                score -= (10 - oppBestTurnDistance) * 40;
+            }
+            
+            // CRITICAL: If opponent can win in 1 turn, huge penalty
+            if (oppBestTurnDistance === 1) {
+                score -= 300;
             }
             
             // Bonus for pieces in opponent's half (attacking position)
             const oppHalf = player === 'dark' ? [0, 1, 2, 3] : [4, 5, 6, 7];
             for (const { row } of myPieces) {
                 if (oppHalf.includes(row)) {
-                    score += 20;
+                    const distToGoal = Math.abs(row - myGoalRow);
+                    score += 20 + (4 - distToGoal) * 10;
                 }
             }
             
@@ -8068,12 +8543,180 @@
             for (const { row, col, piece } of myPieces) {
                 const distToGoal = Math.abs(row - myGoalRow);
                 if (distToGoal <= 3) {
-                    // This is an advanced piece - check if we can move it
                     const canMove = v7CanMovePiece(piece, myHand, myResting);
                     if (canMove) {
-                        score += 15; // Good - we can move our advanced piece
+                        score += 15;
                     } else {
-                        score -= 10; // Bad - advanced piece is stuck
+                        score -= 10;
+                    }
+                }
+            }
+            
+            // === PIECE COORDINATION ===
+            // Bonus for pieces that can jump off each other toward goal
+            for (const p1 of myPieces) {
+                for (const p2 of myPieces) {
+                    if (p1.row === p2.row && p1.col === p2.col) continue;
+                    
+                    // Check if p1 can jump over p2 toward goal
+                    const diagDirs = [[myDirection, 1], [myDirection, -1]];
+                    for (const [dr, dc] of diagDirs) {
+                        // p2 would need to be at p1 + (dr, dc)
+                        // landing would be at p1 + 2*(dr, dc)
+                        if (p2.row === p1.row + dr && p2.col === p1.col + dc) {
+                            const landRow = p1.row + 2 * dr;
+                            const landCol = p1.col + 2 * dc;
+                            
+                            if (landRow >= 0 && landRow <= 7 && landCol >= 0 && landCol <= 7) {
+                                const landSpot = state.board[landRow][landCol];
+                                if (!landSpot) {
+                                    // p1 can jump over p2!
+                                    score += 15;
+                                    
+                                    // Extra bonus if the jump reaches goal
+                                    if (landRow === myGoalRow) {
+                                        score += 40;
+                                    }
+                                    // Bonus if jump gets significantly closer
+                                    else if (Math.abs(landRow - myGoalRow) < Math.abs(p1.row - myGoalRow)) {
+                                        score += 10;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Also check jumps over shadows
+                for (const shadow of myShadows) {
+                    const diagDirs = [[myDirection, 1], [myDirection, -1]];
+                    for (const [dr, dc] of diagDirs) {
+                        if (shadow.row === p1.row + dr && shadow.col === p1.col + dc) {
+                            const landRow = p1.row + 2 * dr;
+                            const landCol = p1.col + 2 * dc;
+                            
+                            if (landRow >= 0 && landRow <= 7 && landCol >= 0 && landCol <= 7) {
+                                const landSpot = state.board[landRow][landCol];
+                                if (!landSpot) {
+                                    score += 12; // Slightly less than golem jump
+                                    if (landRow === myGoalRow) {
+                                        score += 35;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Bonus for pieces that form capture setups
+            for (const p1 of myPieces) {
+                // Check if p1 can participate in a capture with another piece
+                const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+                for (const [dr, dc] of dirs) {
+                    const supportRow = p1.row + dr * 2;
+                    const supportCol = p1.col + dc * 2;
+                    const targetRow = p1.row + dr;
+                    const targetCol = p1.col + dc;
+                    
+                    if (supportRow < 0 || supportRow > 7 || supportCol < 0 || supportCol > 7) continue;
+                    if (targetRow < 0 || targetRow > 7 || targetCol < 0 || targetCol > 7) continue;
+                    
+                    const supportPiece = state.board[supportRow][supportCol];
+                    const targetPiece = state.board[targetRow][targetCol];
+                    
+                    // We have a support piece, and there's an enemy in between
+                    if (supportPiece?.player === player && targetPiece?.player === opponent) {
+                        // Check if p1 could capture this target (different traits)
+                        if (targetPiece.type === 'golem') {
+                            if (p1.piece.shape !== targetPiece.shape && p1.piece.color !== targetPiece.color) {
+                                // More valuable to threaten advanced pieces
+                                const targetDistToGoal = Math.abs(targetRow - oppGoalRow);
+                                const threatValue = 25 + (7 - targetDistToGoal) * 5;
+                                score += threatValue;
+                            }
+                        } else {
+                            score += 20; // Can capture shadow
+                        }
+                    }
+                }
+            }
+            
+            // === DISRUPTION SCORING ===
+            // Evaluate how well we're positioned to threaten opponent's advanced pieces
+            for (const opp of oppPieces) {
+                const oppDistToGoal = Math.abs(opp.row - oppGoalRow);
+                
+                // The more advanced an opponent piece, the more we should be threatening it
+                if (oppDistToGoal <= 4) { // Opponent piece is in our half or close
+                    const threatLevel = 5 - oppDistToGoal; // 1-5 based on how close to our goal
+                    
+                    // Check if any of our pieces can capture this opponent piece
+                    let canCapture = false;
+                    let captureSetupExists = false;
+                    
+                    for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+                        const side1Row = opp.row + dr;
+                        const side1Col = opp.col + dc;
+                        const side2Row = opp.row - dr;
+                        const side2Col = opp.col - dc;
+                        
+                        if (side1Row < 0 || side1Row > 7 || side1Col < 0 || side1Col > 7) continue;
+                        if (side2Row < 0 || side2Row > 7 || side2Col < 0 || side2Col > 7) continue;
+                        
+                        const piece1 = state.board[side1Row][side1Col];
+                        const piece2 = state.board[side2Row][side2Col];
+                        
+                        // Check if we already have pieces on both sides (immediate capture possible)
+                        if (piece1?.player === player && piece2?.player === player) {
+                            // One of these pieces could capture if it can and has right traits
+                            for (const p of myPieces) {
+                                if ((p.row === side1Row && p.col === side1Col) ||
+                                    (p.row === side2Row && p.col === side2Col)) {
+                                    if (p.piece.shape !== opp.piece.shape && p.piece.color !== opp.piece.color) {
+                                        if (v7CanMovePiece(p.piece, myHand, myResting)) {
+                                            canCapture = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Check if we have one piece on a side and could move another to the other side
+                        if ((piece1?.player === player && !piece2) || 
+                            (piece2?.player === player && !piece1)) {
+                            const ourSide = piece1?.player === player ? { row: side1Row, col: side1Col } : { row: side2Row, col: side2Col };
+                            const emptySide = piece1?.player === player ? { row: side2Row, col: side2Col } : { row: side1Row, col: side1Col };
+                            
+                            // Can any piece reach the empty side?
+                            for (const p of myPieces) {
+                                if (p.row === ourSide.row && p.col === ourSide.col) continue;
+                                
+                                // Can this piece capture the opponent?
+                                if (p.piece.shape === opp.piece.shape || p.piece.color === opp.piece.color) continue;
+                                
+                                const pMoves = v7GetValidMoves(state.board, p.row, p.col);
+                                for (const pm of pMoves) {
+                                    if (pm.row === emptySide.row && pm.col === emptySide.col) {
+                                        captureSetupExists = true;
+                                        break;
+                                    }
+                                }
+                                if (captureSetupExists) break;
+                            }
+                        }
+                        
+                        if (canCapture || captureSetupExists) break;
+                    }
+                    
+                    // Score based on threat situation
+                    if (canCapture) {
+                        score += threatLevel * 30; // We can capture this piece
+                    } else if (captureSetupExists) {
+                        score += threatLevel * 15; // We're one move away from capture
+                    } else if (oppDistToGoal <= 2) {
+                        // Advanced piece we can't threaten - penalty
+                        score -= threatLevel * 20;
                     }
                 }
             }
