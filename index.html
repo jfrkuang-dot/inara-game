@@ -812,6 +812,57 @@
             transform: scale(1.1);
         }
 
+        /* Glyph choice bubble for desktop */
+        .glyph-choice-bubble {
+            position: absolute;
+            display: flex;
+            gap: 6px;
+            padding: 8px;
+            background: var(--onyx);
+            border: 2px solid var(--gold);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        .glyph-choice-bubble::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: var(--onyx);
+            border: 2px solid var(--gold);
+            transform: rotate(45deg);
+        }
+
+        .glyph-choice-bubble.above::after {
+            bottom: -8px;
+            left: 50%;
+            margin-left: -6px;
+            border-top: none;
+            border-left: none;
+        }
+
+        .glyph-choice-bubble.below::after {
+            top: -8px;
+            left: 50%;
+            margin-left: -6px;
+            border-bottom: none;
+            border-right: none;
+        }
+
+        .glyph-choice-bubble .glyph {
+            width: 48px;
+            height: 48px;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        .glyph-choice-bubble .glyph:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 12px var(--gold-glow);
+        }
+
         /* Board Container */
         .board-container {
             order: 1;
@@ -4354,6 +4405,9 @@
 
         // === RENDERING ===
         function renderGame() {
+            // Hide any open glyph choice bubble when state changes
+            hideGlyphChoiceBubble();
+            
             renderBoard();
             renderGlyphs();
             renderSupply();
@@ -5024,6 +5078,101 @@
             });
         }
 
+        // Glyph choice bubble for desktop
+        let activeChoiceBubble = null;
+
+        function showGlyphChoiceBubble(row, col, targetRow, targetCol, matchingGlyphIndices) {
+            // Only show on desktop
+            if (window.innerWidth < 768) {
+                flashChoiceRequiredGlyphs();
+                return;
+            }
+
+            // Remove any existing bubble
+            hideGlyphChoiceBubble();
+
+            const square = document.getElementById(`sq-${row}-${col}`);
+            if (!square) return;
+
+            const board = document.getElementById('board');
+            const boardRect = board.getBoundingClientRect();
+            const squareRect = square.getBoundingClientRect();
+
+            // Create bubble
+            const bubble = document.createElement('div');
+            bubble.className = 'glyph-choice-bubble';
+            bubble.id = 'glyphChoiceBubble';
+
+            // Add matching glyphs
+            const hand = gameState.currentPlayer === 'dark' ? gameState.darkHand : gameState.lightHand;
+            matchingGlyphIndices.forEach(index => {
+                const glyph = hand[index];
+                const glyphEl = createGlyphElement(glyph, gameState.currentPlayer, index, false);
+                glyphEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Select glyph and execute move immediately
+                    gameState.selectedGlyph = { player: gameState.currentPlayer, index };
+                    hideGlyphChoiceBubble();
+                    saveState();
+                    movePiece(gameState.selectedPiece.row, gameState.selectedPiece.col, targetRow, targetCol);
+                });
+                bubble.appendChild(glyphEl);
+            });
+
+            // Add to board container for positioning
+            const boardContainer = board.parentElement;
+            boardContainer.style.position = 'relative';
+            boardContainer.appendChild(bubble);
+
+            // Calculate position - prefer above, fall back to below
+            const bubbleRect = bubble.getBoundingClientRect();
+            const squareRelativeLeft = squareRect.left - boardRect.left;
+            const squareRelativeTop = squareRect.top - boardRect.top;
+            const squareCenterX = squareRelativeLeft + squareRect.width / 2;
+
+            // Center horizontally on the square
+            let left = squareCenterX - bubbleRect.width / 2;
+            // Keep within board bounds
+            left = Math.max(0, Math.min(left, boardRect.width - bubbleRect.width));
+
+            // Check if there's room above
+            const spaceAbove = squareRect.top - boardRect.top;
+            const spaceBelow = boardRect.bottom - squareRect.bottom;
+
+            if (spaceAbove >= bubbleRect.height + 15) {
+                // Position above
+                bubble.classList.add('above');
+                bubble.style.left = left + 'px';
+                bubble.style.top = (squareRelativeTop - bubbleRect.height - 10) + 'px';
+            } else {
+                // Position below
+                bubble.classList.add('below');
+                bubble.style.left = left + 'px';
+                bubble.style.top = (squareRelativeTop + squareRect.height + 10) + 'px';
+            }
+
+            activeChoiceBubble = bubble;
+
+            // Add click-outside listener
+            setTimeout(() => {
+                document.addEventListener('click', handleChoiceBubbleClickOutside);
+            }, 0);
+        }
+
+        function hideGlyphChoiceBubble() {
+            if (activeChoiceBubble) {
+                activeChoiceBubble.remove();
+                activeChoiceBubble = null;
+            }
+            document.removeEventListener('click', handleChoiceBubbleClickOutside);
+        }
+
+        function handleChoiceBubbleClickOutside(e) {
+            if (activeChoiceBubble && !activeChoiceBubble.contains(e.target)) {
+                hideGlyphChoiceBubble();
+            }
+        }
+
         function handleSquareClick(row, col) {
             if (gameState.gameOver || gameState.isPaused) return;
             
@@ -5060,17 +5209,22 @@
                 }
             }
 
-            // Clicking a projected square (piece selected but no glyph) - flash the choice-required glyphs
+            // Clicking a projected square (piece selected but no glyph) - show choice bubble
             if (gameState.selectedPiece && !gameState.selectedGlyph) {
                 const piece = gameState.board[gameState.selectedPiece.row][gameState.selectedPiece.col];
                 const hand = gameState.currentPlayer === 'dark' ? gameState.darkHand : gameState.lightHand;
-                const matchingGlyphs = hand.filter(glyph => glyphMatchesPiece(glyph, piece));
+                const matchingGlyphIndices = [];
+                hand.forEach((glyph, index) => {
+                    if (glyphMatchesPiece(glyph, piece)) {
+                        matchingGlyphIndices.push(index);
+                    }
+                });
                 
-                // Only flash if there are matching glyphs (choice required, not blocked)
-                if (matchingGlyphs.length > 0) {
+                // Only show bubble if there are matching glyphs (choice required, not blocked)
+                if (matchingGlyphIndices.length > 0) {
                     const projectedMoves = getValidMoves(gameState.selectedPiece.row, gameState.selectedPiece.col);
                     if (projectedMoves.some(m => m.row === row && m.col === col)) {
-                        flashChoiceRequiredGlyphs();
+                        showGlyphChoiceBubble(row, col, row, col, matchingGlyphIndices);
                         return;
                     }
                 }
