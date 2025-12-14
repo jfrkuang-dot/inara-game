@@ -7190,6 +7190,146 @@
             return count;
         }
         
+        // Evaluate the danger of giving a specific glyph to the opponent
+        function cpuEvaluateGlyphDanger(move, player) {
+            const opponent = player === 'dark' ? 'light' : 'dark';
+            const ourHand = player === 'dark' ? gameState.darkHand : gameState.lightHand;
+            const oppHand = opponent === 'dark' ? gameState.darkHand : gameState.lightHand;
+            const oppResting = opponent === 'dark' ? gameState.darkResting : gameState.lightResting;
+            const goalRow = player === 'dark' ? 7 : 0; // Our goal row (where opponent threatens)
+            
+            // Get the glyph we're about to use
+            const glyphUsed = ourHand[move.glyphIndex];
+            if (!glyphUsed) return 0;
+            
+            // Check if opponent has mirror in hand
+            const oppHasMirror = oppHand.some(g => g.type === 'mirror');
+            
+            // Find all opponent pieces
+            const oppPieces = [];
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = gameState.board[row][col];
+                    if (piece?.player === opponent && piece.type === 'golem') {
+                        oppPieces.push({ row, col, piece });
+                    }
+                }
+            }
+            
+            let totalPenalty = 0;
+            
+            for (const { row, col, piece } of oppPieces) {
+                // Check if opponent can ALREADY move this piece
+                let canAlreadyMove = false;
+                for (const g of oppHand) {
+                    let effectiveGlyph = g;
+                    if (g.type === 'mirror') {
+                        effectiveGlyph = oppResting;
+                    }
+                    if (!effectiveGlyph) continue;
+                    
+                    const matches = (effectiveGlyph.type === 'color' && piece.color === effectiveGlyph.value) ||
+                                   (effectiveGlyph.type === 'shape' && piece.shape === effectiveGlyph.value);
+                    if (matches) {
+                        canAlreadyMove = true;
+                        break;
+                    }
+                }
+                
+                // If they can already move it, no additional danger from our glyph
+                if (canAlreadyMove) continue;
+                
+                // Does our glyph match this piece?
+                let glyphMatchesPiece = false;
+                if (glyphUsed.type === 'color' && piece.color === glyphUsed.value) {
+                    glyphMatchesPiece = true;
+                } else if (glyphUsed.type === 'shape' && piece.shape === glyphUsed.value) {
+                    glyphMatchesPiece = true;
+                } else if (glyphUsed.type === 'mirror') {
+                    // If we use mirror, our resting goes to them - check if that matches
+                    const ourResting = player === 'dark' ? gameState.darkResting : gameState.lightResting;
+                    if (ourResting) {
+                        if (ourResting.type === 'color' && piece.color === ourResting.value) {
+                            glyphMatchesPiece = true;
+                        } else if (ourResting.type === 'shape' && piece.shape === ourResting.value) {
+                            glyphMatchesPiece = true;
+                        }
+                    }
+                }
+                
+                if (!glyphMatchesPiece) continue;
+                
+                // Assess threat level of this piece using jump connectivity
+                const threatLevel = cpuAssessPieceThreatLevel(row, col, piece, opponent, goalRow, oppPieces);
+                
+                if (threatLevel > 0) {
+                    if (oppHasMirror) {
+                        // Mirror path - immediate danger (full penalty)
+                        totalPenalty += threatLevel;
+                    } else {
+                        // Direct path - delayed by one turn (reduced penalty)
+                        totalPenalty += Math.floor(threatLevel * 0.5);
+                    }
+                }
+            }
+            
+            return totalPenalty;
+        }
+        
+        // Assess how threatening a specific piece is based on jump connectivity
+        function cpuAssessPieceThreatLevel(row, col, piece, player, goalRow, allPieces) {
+            // Check if this piece can reach goal directly
+            const moves = cpuGetValidMovesOnBoard(gameState.board, row, col, player);
+            for (const m of moves) {
+                if (m.row === goalRow) {
+                    return 200; // Can win now - critical!
+                }
+            }
+            
+            // Check if this piece is one jump away from goal (stepping stone exists)
+            const direction = player === 'dark' ? -1 : 1;
+            const distanceToGoal = Math.abs(row - goalRow);
+            
+            if (distanceToGoal <= 3) {
+                // Check for stepping stone potential - can another piece jump over this one to win?
+                for (const other of allPieces) {
+                    if (other.row === row && other.col === col) continue;
+                    
+                    // Check if 'other' could jump over 'piece' to reach goal
+                    const diagDirs = [[direction, 1], [direction, -1]];
+                    for (const [dr, dc] of diagDirs) {
+                        // piece would be at other + (dr, dc)
+                        // landing would be at other + 2*(dr, dc)
+                        if (row === other.row + dr && col === other.col + dc) {
+                            const landRow = other.row + 2 * dr;
+                            const landCol = other.col + 2 * dc;
+                            
+                            if (landRow === goalRow && landCol >= 0 && landCol < 8) {
+                                const landSpot = gameState.board[landRow][landCol];
+                                if (!landSpot) {
+                                    return 80; // Stepping stone to win
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Check if this piece itself can reach a good position
+                for (const m of moves) {
+                    const newDistanceToGoal = Math.abs(m.row - goalRow);
+                    if (newDistanceToGoal <= 1) {
+                        return 40; // Can advance to dangerous position
+                    }
+                }
+            }
+            
+            // Base threat by distance
+            if (distanceToGoal <= 2) return 20;
+            if (distanceToGoal <= 4) return 10;
+            
+            return 0;
+        }
+        
         // Check if player can respond to an enemy at (targetRow, targetCol) with a capture
         // This requires:
         // 1. A piece that can move adjacent to target
@@ -7470,6 +7610,10 @@
                     }
                 }
                 
+                // Evaluate glyph danger - penalize moves that gift useful glyphs to opponent
+                const glyphDanger = cpuEvaluateGlyphDanger(move, player);
+                score -= glyphDanger;
+                
                 return { move, score };
             });
             
@@ -7479,6 +7623,508 @@
             const bestMoves = scoredMoves.filter(m => m.score === bestScore);
             
             return bestMoves[Math.floor(Math.random() * bestMoves.length)].move;
+        }
+
+        // ============== V7 CPU: Minimax with proper position evaluation ==============
+        
+        function cpuGetMoveV7() {
+            const player = gameState.currentPlayer;
+            const goalRow = player === 'dark' ? 0 : 7;
+            
+            const moves = getCpuLegalMoves(player);
+            if (moves.length === 0) return null;
+            
+            // 1. Immediate win check
+            for (const move of moves) {
+                if (move.type === 'movement' && move.to.row === goalRow) {
+                    return move;
+                }
+            }
+            
+            // 2. Score all moves using minimax (depth 2: my move, their response)
+            const scoredMoves = moves.map(move => {
+                const score = v7EvaluateMove(move, player, 2);
+                return { move, score };
+            });
+            
+            scoredMoves.sort((a, b) => b.score - a.score);
+            
+            // Pick randomly among tied best moves
+            const bestScore = scoredMoves[0].score;
+            const bestMoves = scoredMoves.filter(m => m.score === bestScore);
+            
+            return bestMoves[Math.floor(Math.random() * bestMoves.length)].move;
+        }
+        
+        // Evaluate a move by simulating it and opponent's best response
+        function v7EvaluateMove(move, player, depth) {
+            // Create a simulation state
+            const simState = v7CloneState();
+            
+            // Apply our move
+            v7ApplyMove(simState, move, player);
+            
+            // If depth exhausted, just evaluate position
+            if (depth <= 1) {
+                return v7EvaluatePosition(simState, player);
+            }
+            
+            // Find opponent's best response
+            const opponent = player === 'dark' ? 'light' : 'dark';
+            const opponentMoves = v7GetLegalMoves(simState, opponent);
+            
+            if (opponentMoves.length === 0) {
+                // Opponent has no moves - very good for us
+                return 1000;
+            }
+            
+            // Check if opponent can win
+            const oppGoalRow = opponent === 'dark' ? 0 : 7;
+            for (const oppMove of opponentMoves) {
+                if (oppMove.type === 'movement' && oppMove.to.row === oppGoalRow) {
+                    // Opponent can win - this is bad (but not if we just won, handled above)
+                    return -1000;
+                }
+            }
+            
+            // Find opponent's best move (maximizing their position = minimizing ours)
+            let worstForUs = Infinity;
+            for (const oppMove of opponentMoves) {
+                const simState2 = v7CloneStateFrom(simState);
+                v7ApplyMove(simState2, oppMove, opponent);
+                const positionScore = v7EvaluatePosition(simState2, player);
+                worstForUs = Math.min(worstForUs, positionScore);
+            }
+            
+            return worstForUs;
+        }
+        
+        // Clone the current game state for simulation
+        function v7CloneState() {
+            return {
+                board: gameState.board.map(row => row.map(cell => cell ? {...cell} : null)),
+                darkHand: gameState.darkHand.map(g => ({...g})),
+                lightHand: gameState.lightHand.map(g => ({...g})),
+                darkResting: gameState.darkResting ? {...gameState.darkResting} : null,
+                lightResting: gameState.lightResting ? {...gameState.lightResting} : null,
+                darkSupply: {
+                    shadows: gameState.darkSupply.shadows,
+                    masks: gameState.darkSupply.masks.map(m => ({...m}))
+                },
+                lightSupply: {
+                    shadows: gameState.lightSupply.shadows,
+                    masks: gameState.lightSupply.masks.map(m => ({...m}))
+                },
+                lightHasPlacedShadow: gameState.lightHasPlacedShadow
+            };
+        }
+        
+        // Clone a simulation state
+        function v7CloneStateFrom(state) {
+            return {
+                board: state.board.map(row => row.map(cell => cell ? {...cell} : null)),
+                darkHand: state.darkHand.map(g => ({...g})),
+                lightHand: state.lightHand.map(g => ({...g})),
+                darkResting: state.darkResting ? {...state.darkResting} : null,
+                lightResting: state.lightResting ? {...state.lightResting} : null,
+                darkSupply: {
+                    shadows: state.darkSupply.shadows,
+                    masks: state.darkSupply.masks.map(m => ({...m}))
+                },
+                lightSupply: {
+                    shadows: state.lightSupply.shadows,
+                    masks: state.lightSupply.masks.map(m => ({...m}))
+                },
+                lightHasPlacedShadow: state.lightHasPlacedShadow
+            };
+        }
+        
+        // Apply a move to a simulation state
+        function v7ApplyMove(state, move, player) {
+            const hand = player === 'dark' ? state.darkHand : state.lightHand;
+            const supply = player === 'dark' ? state.darkSupply : state.lightSupply;
+            const opponent = player === 'dark' ? 'light' : 'dark';
+            
+            // Get the glyph being used
+            const glyphUsed = hand[move.glyphIndex];
+            
+            if (move.type === 'movement') {
+                // Move the piece
+                const piece = state.board[move.from.row][move.from.col];
+                state.board[move.to.row][move.to.col] = piece;
+                state.board[move.from.row][move.from.col] = null;
+                
+                // Place shadow if applicable
+                if (move.placeShadow && supply.shadows > 0) {
+                    state.board[move.from.row][move.from.col] = { type: 'shadow', player };
+                    supply.shadows--;
+                    if (player === 'light') state.lightHasPlacedShadow = true;
+                }
+                
+                // Handle captures
+                v7HandleCaptures(state, move.to.row, move.to.col, piece);
+                
+            } else if (move.type === 'reactivation') {
+                // Remove shadow, place golem
+                const mask = supply.masks[move.maskIndex];
+                state.board[move.position.row][move.position.col] = {
+                    type: 'golem',
+                    player,
+                    shape: mask.shape,
+                    color: mask.color
+                };
+                supply.masks.splice(move.maskIndex, 1);
+                
+                // Handle captures from reactivation
+                const newPiece = state.board[move.position.row][move.position.col];
+                v7HandleCaptures(state, move.position.row, move.position.col, newPiece);
+            }
+            
+            // Update glyphs: used glyph goes to opponent's resting
+            hand.splice(move.glyphIndex, 1);
+            
+            // Pick up current resting
+            const resting = player === 'dark' ? state.darkResting : state.lightResting;
+            if (resting) {
+                hand.push(resting);
+            }
+            
+            // Set opponent's new resting
+            if (opponent === 'dark') {
+                state.darkResting = glyphUsed;
+            } else {
+                state.lightResting = glyphUsed;
+            }
+            
+            // Clear our resting
+            if (player === 'dark') {
+                state.darkResting = null;
+            } else {
+                state.lightResting = null;
+            }
+        }
+        
+        // Handle captures in simulation
+        function v7HandleCaptures(state, row, col, movingPiece) {
+            const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            const capturedShadowOwners = new Set();
+            
+            for (const [dr, dc] of directions) {
+                const enemyRow = row + dr;
+                const enemyCol = col + dc;
+                const supportRow = row + dr * 2;
+                const supportCol = col + dc * 2;
+                
+                if (enemyRow < 0 || enemyRow > 7 || enemyCol < 0 || enemyCol > 7) continue;
+                if (supportRow < 0 || supportRow > 7 || supportCol < 0 || supportCol > 7) continue;
+                
+                const enemyPiece = state.board[enemyRow][enemyCol];
+                const supportPiece = state.board[supportRow][supportCol];
+                
+                if (!enemyPiece || !supportPiece) continue;
+                if (enemyPiece.player === movingPiece.player) continue;
+                if (supportPiece.player !== movingPiece.player) continue;
+                
+                // Check capture validity (can't capture same shape or same color)
+                if (enemyPiece.type === 'golem') {
+                    if (movingPiece.shape === enemyPiece.shape) continue;
+                    if (movingPiece.color === enemyPiece.color) continue;
+                }
+                
+                // Capture!
+                const supply = enemyPiece.player === 'dark' ? state.darkSupply : state.lightSupply;
+                if (enemyPiece.type === 'shadow') {
+                    capturedShadowOwners.add(enemyPiece.player);
+                    supply.shadows++;
+                } else {
+                    supply.shadows++;
+                    supply.masks.push({ shape: enemyPiece.shape, color: enemyPiece.color });
+                }
+                state.board[enemyRow][enemyCol] = null;
+            }
+            
+            // Shadow cascade
+            for (const owner of capturedShadowOwners) {
+                const supply = owner === 'dark' ? state.darkSupply : state.lightSupply;
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < 8; c++) {
+                        const p = state.board[r][c];
+                        if (p?.type === 'shadow' && p.player === owner) {
+                            state.board[r][c] = null;
+                            supply.shadows++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Get legal moves for a simulation state
+        function v7GetLegalMoves(state, player) {
+            const moves = [];
+            const hand = player === 'dark' ? state.darkHand : state.lightHand;
+            const resting = player === 'dark' ? state.darkResting : state.lightResting;
+            const supply = player === 'dark' ? state.darkSupply : state.lightSupply;
+            
+            const canPlaceShadow = supply.shadows > 0 && 
+                (player === 'light' || state.lightHasPlacedShadow);
+            
+            for (let glyphIndex = 0; glyphIndex < hand.length; glyphIndex++) {
+                const glyph = hand[glyphIndex];
+                const effectiveGlyph = glyph.type === 'mirror' ? resting : glyph;
+                if (!effectiveGlyph) continue;
+                
+                // Movement moves
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const piece = state.board[row][col];
+                        if (piece?.type === 'golem' && piece.player === player) {
+                            const matches = (effectiveGlyph.type === 'color' && piece.color === effectiveGlyph.value) ||
+                                          (effectiveGlyph.type === 'shape' && piece.shape === effectiveGlyph.value);
+                            if (matches) {
+                                const destinations = v7GetValidMoves(state.board, row, col);
+                                for (const dest of destinations) {
+                                    moves.push({
+                                        type: 'movement',
+                                        glyphIndex,
+                                        from: { row, col },
+                                        to: dest,
+                                        placeShadow: false
+                                    });
+                                    if (canPlaceShadow) {
+                                        moves.push({
+                                            type: 'movement',
+                                            glyphIndex,
+                                            from: { row, col },
+                                            to: dest,
+                                            placeShadow: true
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Reactivation moves
+                if (resting && supply.masks.length > 0) {
+                    for (let maskIndex = 0; maskIndex < supply.masks.length; maskIndex++) {
+                        const mask = supply.masks[maskIndex];
+                        // Check if mask matches both glyphs
+                        const matchesGlyph = (effectiveGlyph.type === 'color' && mask.color === effectiveGlyph.value) ||
+                                            (effectiveGlyph.type === 'shape' && mask.shape === effectiveGlyph.value);
+                        const matchesResting = (resting.type === 'color' && mask.color === resting.value) ||
+                                              (resting.type === 'shape' && mask.shape === resting.value);
+                        if (matchesGlyph && matchesResting) {
+                            for (let row = 0; row < 8; row++) {
+                                for (let col = 0; col < 8; col++) {
+                                    const piece = state.board[row][col];
+                                    if (piece?.type === 'shadow' && piece.player === player) {
+                                        moves.push({
+                                            type: 'reactivation',
+                                            glyphIndex,
+                                            maskIndex,
+                                            position: { row, col }
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return moves;
+        }
+        
+        // Get valid moves for a piece on a board (simplified version for simulation)
+        function v7GetValidMoves(board, row, col) {
+            const moves = [];
+            const piece = board[row][col];
+            if (!piece || piece.type !== 'golem') return moves;
+            
+            // Orthogonal steps (2 spaces)
+            const orthDirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            for (const [dr, dc] of orthDirs) {
+                const midRow = row + dr;
+                const midCol = col + dc;
+                const newRow = row + 2 * dr;
+                const newCol = col + 2 * dc;
+                
+                if (newRow < 0 || newRow > 7 || newCol < 0 || newCol > 7) continue;
+                if (midRow < 0 || midRow > 7 || midCol < 0 || midCol > 7) continue;
+                
+                const midPiece = board[midRow][midCol];
+                const destPiece = board[newRow][newCol];
+                
+                // Blocked only by opponent in middle
+                if (midPiece && midPiece.player !== piece.player) continue;
+                if (destPiece) continue;
+                
+                moves.push({ row: newRow, col: newCol });
+            }
+            
+            // Diagonal jumps
+            const diagDirs = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+            const visited = new Set();
+            visited.add(`${row},${col}`);
+            
+            function findJumps(r, c) {
+                for (const [dr, dc] of diagDirs) {
+                    const midR = r + dr;
+                    const midC = c + dc;
+                    const landR = r + 2 * dr;
+                    const landC = c + 2 * dc;
+                    
+                    if (landR < 0 || landR > 7 || landC < 0 || landC > 7) continue;
+                    if (midR < 0 || midR > 7 || midC < 0 || midC > 7) continue;
+                    
+                    const midPiece = board[midR][midC];
+                    const landPiece = board[landR][landC];
+                    
+                    // Must jump over a piece, land on empty
+                    if (!midPiece) continue;
+                    if (landPiece) continue;
+                    
+                    const key = `${landR},${landC}`;
+                    if (visited.has(key)) continue;
+                    visited.add(key);
+                    
+                    moves.push({ row: landR, col: landC });
+                    findJumps(landR, landC);
+                }
+            }
+            
+            findJumps(row, col);
+            
+            return moves;
+        }
+        
+        // Evaluate a position from a player's perspective
+        function v7EvaluatePosition(state, player) {
+            const opponent = player === 'dark' ? 'light' : 'dark';
+            const myGoalRow = player === 'dark' ? 0 : 7;
+            const oppGoalRow = opponent === 'dark' ? 0 : 7;
+            
+            let score = 0;
+            
+            // Find all pieces
+            const myPieces = [];
+            const oppPieces = [];
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = state.board[row][col];
+                    if (piece?.type === 'golem') {
+                        if (piece.player === player) {
+                            myPieces.push({ row, col, piece });
+                        } else {
+                            oppPieces.push({ row, col, piece });
+                        }
+                    }
+                }
+            }
+            
+            // Material
+            score += (myPieces.length - oppPieces.length) * 50;
+            
+            // My best turn distance to goal
+            const myHand = player === 'dark' ? state.darkHand : state.lightHand;
+            const myResting = player === 'dark' ? state.darkResting : state.lightResting;
+            let myBestTurnDistance = Infinity;
+            
+            for (const { row, col, piece } of myPieces) {
+                const turnDist = v7TurnDistanceToGoal(state, row, col, piece, player, myGoalRow, myHand, myResting);
+                myBestTurnDistance = Math.min(myBestTurnDistance, turnDist);
+            }
+            
+            // Opponent's best turn distance to goal
+            const oppHand = opponent === 'dark' ? state.darkHand : state.lightHand;
+            const oppResting = opponent === 'dark' ? state.darkResting : state.lightResting;
+            let oppBestTurnDistance = Infinity;
+            
+            for (const { row, col, piece } of oppPieces) {
+                const turnDist = v7TurnDistanceToGoal(state, row, col, piece, opponent, oppGoalRow, oppHand, oppResting);
+                oppBestTurnDistance = Math.min(oppBestTurnDistance, turnDist);
+            }
+            
+            // Turn distance advantage (lower is better, so opponent's minus ours)
+            // Scale significantly - being closer to winning is very valuable
+            if (myBestTurnDistance < Infinity) {
+                score += (10 - myBestTurnDistance) * 30;
+            }
+            if (oppBestTurnDistance < Infinity) {
+                score -= (10 - oppBestTurnDistance) * 30;
+            }
+            
+            // Bonus for pieces in opponent's half (attacking position)
+            const oppHalf = player === 'dark' ? [0, 1, 2, 3] : [4, 5, 6, 7];
+            for (const { row } of myPieces) {
+                if (oppHalf.includes(row)) {
+                    score += 20;
+                }
+            }
+            
+            // Glyph availability - can I move my advanced pieces?
+            for (const { row, col, piece } of myPieces) {
+                const distToGoal = Math.abs(row - myGoalRow);
+                if (distToGoal <= 3) {
+                    // This is an advanced piece - check if we can move it
+                    const canMove = v7CanMovePiece(piece, myHand, myResting);
+                    if (canMove) {
+                        score += 15; // Good - we can move our advanced piece
+                    } else {
+                        score -= 10; // Bad - advanced piece is stuck
+                    }
+                }
+            }
+            
+            return score;
+        }
+        
+        // Calculate turn distance to goal for a piece
+        // This considers: can we move it now? Do we need to wait for glyphs?
+        function v7TurnDistanceToGoal(state, row, col, piece, player, goalRow, hand, resting) {
+            // Check if piece can reach goal this turn
+            const moves = v7GetValidMoves(state.board, row, col);
+            for (const m of moves) {
+                if (m.row === goalRow) {
+                    // Can reach goal - but can we move this piece?
+                    if (v7CanMovePiece(piece, hand, resting)) {
+                        return 1; // Win in 1 turn
+                    } else {
+                        return 2; // Could win but need the right glyph
+                    }
+                }
+            }
+            
+            // Simple heuristic: row distance as baseline
+            const rowDistance = Math.abs(row - goalRow);
+            
+            // Each orthogonal step covers 2 rows, each jump covers 2 rows
+            // But we need right glyphs, so estimate turns
+            const baseTurns = Math.ceil(rowDistance / 2);
+            
+            // Add penalty if we can't currently move this piece
+            if (!v7CanMovePiece(piece, hand, resting)) {
+                return baseTurns + 1;
+            }
+            
+            return baseTurns;
+        }
+        
+        // Check if we have a glyph to move a piece
+        function v7CanMovePiece(piece, hand, resting) {
+            for (const glyph of hand) {
+                let effective = glyph;
+                if (glyph.type === 'mirror') {
+                    effective = resting;
+                }
+                if (!effective) continue;
+                
+                if (effective.type === 'color' && piece.color === effective.value) return true;
+                if (effective.type === 'shape' && piece.shape === effective.value) return true;
+            }
+            return false;
         }
 
         function executeCpuMove(move) {
@@ -7519,7 +8165,7 @@
                 if (gameState.gameOver) return;
                 if (!spectateMode && gameState.currentPlayer !== cpuPlayer) return;
                 
-                const move = cpuGetMoveV6();
+                const move = cpuGetMoveV7();
                 if (move) {
                     executeCpuMove(move);
                 }
