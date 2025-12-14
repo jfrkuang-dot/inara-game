@@ -633,6 +633,27 @@
             }
         }
 
+        /* Golem run complete flash */
+        .piece.run-complete {
+            animation: golemRunComplete 0.15s ease-in-out 2;
+        }
+
+        @keyframes golemRunComplete {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Capture flash animation */
+        .piece.captured, .shadow-piece.captured {
+            animation: captureFlash 0.2s ease-out forwards;
+        }
+
+        @keyframes captureFlash {
+            0% { opacity: 1; filter: brightness(1); }
+            40% { opacity: 1; filter: brightness(1.8); }
+            100% { opacity: 0; filter: brightness(1); }
+        }
+
         .glyph.resting {
             opacity: 0.7;
             cursor: default;
@@ -720,7 +741,9 @@
             display: flex;
             gap: 3px;
             overflow: hidden;
-            max-width: 108px; /* 3 masks * 32px + gaps */
+            max-width: calc(108px + 8px); /* 3 masks * 32px + gaps + padding */
+            padding: 4px;
+            margin: -4px;
         }
 
         .masks-scroll-btn {
@@ -3040,13 +3063,13 @@
                 <div style="margin-bottom: 20px;">
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                         <button class="btn" id="hostDarkBtn" onclick="setHostSide('dark')" style="flex: 1; background: var(--slate); color: var(--pearl); font-size: 0.85rem; padding: 10px;">
-                            Dark<br><small style="opacity: 0.7;">1st move</small>
+                            Dark<br><small style="opacity: 0.7;">1st<br>move</small>
                         </button>
                         <button class="btn" id="hostRandomBtn" onclick="setHostSide('random')" style="flex: 1; background: var(--gold); font-size: 0.85rem; padding: 10px;">
                             Random
                         </button>
                         <button class="btn" id="hostLightBtn" onclick="setHostSide('light')" style="flex: 1; background: var(--slate); color: var(--pearl); font-size: 0.85rem; padding: 10px;">
-                            Light<br><small style="opacity: 0.7;">1st shadow</small>
+                            Light<br><small style="opacity: 0.7;">1st<br>shadow</small>
                         </button>
                     </div>
                     
@@ -4558,6 +4581,57 @@
             return map[color] || '#fff';
         }
 
+        function flashCompletedRun() {
+            if (!gameState.lastMove) return;
+            
+            const { toRow, toCol } = gameState.lastMove;
+            const square = document.getElementById(`sq-${toRow}-${toCol}`);
+            if (!square) return;
+            
+            const piece = square.querySelector('.piece');
+            if (!piece) return;
+            
+            // Add flash class
+            piece.classList.add('run-complete');
+            
+            // Remove class after animation completes
+            piece.addEventListener('animationend', () => {
+                piece.classList.remove('run-complete');
+            }, { once: true });
+        }
+
+        function animateCapture(row, col) {
+            const square = document.getElementById(`sq-${row}-${col}`);
+            if (!square) return;
+            
+            const piece = square.querySelector('.piece, .shadow-piece');
+            if (!piece) return;
+            
+            // Clone the piece and position it absolutely over the original
+            const clone = piece.cloneNode(true);
+            const rect = piece.getBoundingClientRect();
+            
+            clone.style.position = 'fixed';
+            clone.style.left = rect.left + 'px';
+            clone.style.top = rect.top + 'px';
+            clone.style.width = rect.width + 'px';
+            clone.style.height = rect.height + 'px';
+            clone.style.margin = '0';
+            clone.style.pointerEvents = 'none';
+            clone.style.zIndex = '1000';
+            clone.classList.add('captured');
+            
+            document.body.appendChild(clone);
+            
+            // Remove clone after animation completes
+            clone.addEventListener('animationend', () => {
+                clone.remove();
+            }, { once: true });
+            
+            // Fallback removal in case animationend doesn't fire
+            setTimeout(() => clone.remove(), 300);
+        }
+
         function renderGlyphs() {
             renderPlayerGlyphs('dark');
             renderPlayerGlyphs('light');
@@ -5431,6 +5505,8 @@
                                 : { shape: enemyPiece.shape, color: enemyPiece.color },
                             position: { row: enemyRow, col: enemyCol }
                         });
+                        // Animate the capture before removing from board
+                        animateCapture(enemyRow, enemyCol);
                         capturePiece(enemyRow, enemyCol, enemyPiece, capturedShadowOwners);
                     }
                 }
@@ -5477,6 +5553,8 @@
                 for (let col = 0; col < 8; col++) {
                     const piece = gameState.board[row][col];
                     if (piece?.type === 'shadow' && piece.player === player) {
+                        // Animate the shadow before removing
+                        animateCapture(row, col);
                         gameState.board[row][col] = null;
                         supply.shadows++;
                     }
@@ -5661,6 +5739,7 @@
                 gameState.lastMoveTime = Date.now();
 
                 renderGame();
+                flashCompletedRun();
                 return;
             }
 
@@ -5681,6 +5760,9 @@
             gameState.lastMoveTime = Date.now();
 
             renderGame();
+            
+            // Flash the golem that just completed its run
+            flashCompletedRun();
 
             // Check for no valid actions
             if (!hasValidActions(gameState.currentPlayer)) {
