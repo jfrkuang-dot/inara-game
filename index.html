@@ -1461,6 +1461,23 @@
             cursor: not-allowed;
         }
 
+        .tutorial-exit-btn {
+            display: inline-block;
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--silver);
+            color: var(--silver);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+
+        .tutorial-exit-btn:hover {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
         .tutorial-checklist {
             list-style: none;
             padding-left: 0;
@@ -2332,9 +2349,6 @@
                     <button onclick="toggleRules(); closeMenu();">Rules</button>
                     <button onclick="openTutorial(); closeMenu();">Tutorial</button>
                     <button onclick="showAbout(); closeMenu();">About</button>
-                    <hr>
-                    <button onclick="togglePause(); closeMenu();">Pause/Resume</button>
-                    <button onclick="undoMove(); closeMenu();">Undo Move</button>
                 </div>
             </div>
         </header>
@@ -2361,6 +2375,7 @@
                     <!-- Content injected by JS -->
                 </div>
                 <div class="tutorial-controls">
+                    <button class="tutorial-exit-btn" onclick="exitTutorial()">Exit</button>
                     <button class="tutorial-reset-btn" onclick="resetTutorialScenario()">Reset</button>
                     <button class="tutorial-nav-btn" onclick="tutorialPrev()">◀ Back</button>
                     <span class="tutorial-progress" id="tutorialConsoleProgress">5 / 11</span>
@@ -9039,6 +9054,12 @@
         }
 
         function startGameWithTime() {
+            // Exit tutorial if active
+            if (tutorialMode) {
+                exitTutorial();
+                document.getElementById('welcomeModal').classList.remove('show');
+            }
+            
             // Set game mode based on selection
             if (selectedGameMode === 'cpu') {
                 cpuMode = true;
@@ -9601,6 +9622,24 @@
                 renderBoard();
                 renderPanels();
             }
+        }
+        
+        function exitTutorial() {
+            // Close tutorial UI
+            document.getElementById('tutorialModal').classList.remove('show');
+            document.getElementById('tutorialConsole').classList.remove('show');
+            document.querySelector('.game-area').classList.remove('tutorial-active');
+            
+            // Reset language selector visibility for next open
+            document.getElementById('tutorialLangSelect').style.display = 'block';
+            document.getElementById('tutorialNav').style.display = 'none';
+            document.getElementById('tutorialCapsules').style.display = 'none';
+            
+            tutorialMode = false;
+            tutorialSavedState = null;
+            
+            // Return to welcome modal
+            document.getElementById('welcomeModal').classList.add('show');
         }
 
         function tutorialNext() {
