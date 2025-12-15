@@ -10521,7 +10521,34 @@
                 // Handle captures from reactivation
                 if (move.captures) {
                     for (const capture of move.captures) {
+                        const capturedPiece = gameState.board[capture.position.row][capture.position.col];
                         gameState.board[capture.position.row][capture.position.col] = null;
+                        
+                        // Return captured piece to owner's supply
+                        if (capturedPiece) {
+                            const capturedSupply = capturedPiece.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                            if (capturedPiece.type === 'shadow') {
+                                capturedSupply.shadows++;
+                            } else {
+                                capturedSupply.shadows++;
+                                capturedSupply.masks.push({ shape: capturedPiece.shape, color: capturedPiece.color });
+                            }
+                        }
+                    }
+                    
+                    // Handle shadow cascade for reactivation captures
+                    const cascadePlayers = new Set(move.captures.filter(c => c.shadowCascade).map(c => c.piece.player));
+                    for (const cascadePlayer of cascadePlayers) {
+                        const cascadeSupply = cascadePlayer === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                        for (let r = 0; r < 8; r++) {
+                            for (let c = 0; c < 8; c++) {
+                                const p = gameState.board[r][c];
+                                if (p?.type === 'shadow' && p.player === cascadePlayer) {
+                                    gameState.board[r][c] = null;
+                                    cascadeSupply.shadows++;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -11549,9 +11576,9 @@
                 // Handle captures
                 if (moveData.captures) {
                     for (const cap of moveData.captures) {
-                        const captured = gameState.board[cap.row][cap.col];
+                        const captured = gameState.board[cap.position.row][cap.position.col];
                         if (captured) {
-                            gameState.board[cap.row][cap.col] = null;
+                            gameState.board[cap.position.row][cap.position.col] = null;
                             // Return resources to owner
                             const ownerSupply = captured.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
                             if (captured.type === 'shadow') {
@@ -11559,6 +11586,21 @@
                             } else if (captured.type === 'golem') {
                                 ownerSupply.shadows++;
                                 ownerSupply.masks.push({ shape: captured.shape, color: captured.color });
+                            }
+                        }
+                    }
+                    
+                    // Handle shadow cascade
+                    const cascadePlayers = new Set(moveData.captures.filter(c => c.shadowCascade).map(c => c.piece.player));
+                    for (const cascadePlayer of cascadePlayers) {
+                        const cascadeSupply = cascadePlayer === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                        for (let r = 0; r < 8; r++) {
+                            for (let c = 0; c < 8; c++) {
+                                const p = gameState.board[r][c];
+                                if (p?.type === 'shadow' && p.player === cascadePlayer) {
+                                    gameState.board[r][c] = null;
+                                    cascadeSupply.shadows++;
+                                }
                             }
                         }
                     }
@@ -11624,15 +11666,30 @@
                 // Handle captures from reactivation
                 if (moveData.captures) {
                     for (const cap of moveData.captures) {
-                        const captured = gameState.board[cap.row][cap.col];
+                        const captured = gameState.board[cap.position.row][cap.position.col];
                         if (captured) {
-                            gameState.board[cap.row][cap.col] = null;
+                            gameState.board[cap.position.row][cap.position.col] = null;
                             const ownerSupply = captured.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
                             if (captured.type === 'shadow') {
                                 ownerSupply.shadows++;
                             } else if (captured.type === 'golem') {
                                 ownerSupply.shadows++;
                                 ownerSupply.masks.push({ shape: captured.shape, color: captured.color });
+                            }
+                        }
+                    }
+                    
+                    // Handle shadow cascade for reactivation captures
+                    const cascadePlayers = new Set(moveData.captures.filter(c => c.shadowCascade).map(c => c.piece.player));
+                    for (const cascadePlayer of cascadePlayers) {
+                        const cascadeSupply = cascadePlayer === 'dark' ? gameState.darkSupply : gameState.lightSupply;
+                        for (let r = 0; r < 8; r++) {
+                            for (let c = 0; c < 8; c++) {
+                                const p = gameState.board[r][c];
+                                if (p?.type === 'shadow' && p.player === cascadePlayer) {
+                                    gameState.board[r][c] = null;
+                                    cascadeSupply.shadows++;
+                                }
                             }
                         }
                     }
