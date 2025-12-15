@@ -10348,10 +10348,14 @@
                         const capturedPiece = gameState.board[capture.position.row][capture.position.col];
                         gameState.board[capture.position.row][capture.position.col] = null;
                         
-                        if (capturedPiece && capturedPiece.type !== 'shadow') {
+                        if (capturedPiece) {
                             const capturedSupply = capturedPiece.player === 'dark' ? gameState.darkSupply : gameState.lightSupply;
-                            capturedSupply.shadows++;
-                            capturedSupply.masks.push({ shape: capturedPiece.shape, color: capturedPiece.color });
+                            if (capturedPiece.type === 'shadow') {
+                                capturedSupply.shadows++; // Return the captured shadow to supply
+                            } else {
+                                capturedSupply.shadows++;
+                                capturedSupply.masks.push({ shape: capturedPiece.shape, color: capturedPiece.color });
+                            }
                         }
                     }
                     
