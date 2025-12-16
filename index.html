@@ -4482,8 +4482,8 @@
                 lastMoveTime: null,
                 lastMove: null,
                 isPaused: false,
-                darkLives: selectedLives + 1,
-                lightLives: selectedLives + 1,
+                darkLives: selectedLives || 1,
+                lightLives: selectedLives || 1,
                 // Move timer for online (0 = no limit)
                 moveTimer: 0,
                 moveTimeRemaining: 0
