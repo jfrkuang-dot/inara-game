@@ -3133,19 +3133,13 @@
             </div>
             
             <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 10px; color: var(--silver);">Lives</label>
-                <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 10px;">
-                    <button class="btn lives-btn" id="lives1Btn" onclick="setLives(1)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
-                        <span style="color: #e74c3c;">♥♥</span>
-                    </button>
-                    <button class="btn lives-btn" id="lives2Btn" onclick="setLives(2)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
-                        <span style="color: #e74c3c;">♥♥♥</span>
-                    </button>
-                    <button class="btn lives-btn" id="lives3Btn" onclick="setLives(3)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 10px;">
-                        <span style="color: #e74c3c;">♥♥♥♥</span>
+                <label style="display: block; margin-bottom: 10px; color: var(--silver);">Game Mode</label>
+                <div style="display: flex; gap: 8px; justify-content: center;">
+                    <button class="btn lives-btn" id="lives0Btn" onclick="setLives(0)" style="flex: 1; background: var(--slate); color: var(--pearl);">Sudden Death</button>
+                    <button class="btn lives-btn" id="lives3Btn" onclick="setLives(3)" style="flex: 1; background: var(--gold); padding: 10px;">
+                        Hearts <span style="color: #e74c3c;">♥♥♥</span>
                     </button>
                 </div>
-                <button class="btn lives-btn" id="lives0Btn" onclick="setLives(0)" style="width: 100%; background: var(--gold);">Sudden Death</button>
             </div>
             
             <div style="margin-bottom: 20px;">
@@ -3223,19 +3217,13 @@
                     
                     <!-- Lives selector for online -->
                     <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; color: var(--silver); font-size: 0.9rem;">Lives</label>
-                        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-                            <button class="btn online-lives-btn" id="onlineLives1Btn" onclick="setOnlineLives(1)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
-                                <span style="color: #e74c3c;">♥♥</span>
-                            </button>
-                            <button class="btn online-lives-btn" id="onlineLives2Btn" onclick="setOnlineLives(2)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
-                                <span style="color: #e74c3c;">♥♥♥</span>
-                            </button>
-                            <button class="btn online-lives-btn" id="onlineLives3Btn" onclick="setOnlineLives(3)" style="flex: 1; background: var(--slate); color: var(--pearl); padding: 8px; font-size: 0.85rem;">
-                                <span style="color: #e74c3c;">♥♥♥♥</span>
+                        <label style="display: block; margin-bottom: 8px; color: var(--silver); font-size: 0.9rem;">Game Mode</label>
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn online-lives-btn" id="onlineLives0Btn" onclick="setOnlineLives(0)" style="flex: 1; background: var(--slate); color: var(--pearl); font-size: 0.85rem;">Sudden Death</button>
+                            <button class="btn online-lives-btn" id="onlineLives3Btn" onclick="setOnlineLives(3)" style="flex: 1; background: var(--gold); padding: 8px; font-size: 0.85rem;">
+                                Hearts <span style="color: #e74c3c;">♥♥♥</span>
                             </button>
                         </div>
-                        <button class="btn online-lives-btn" id="onlineLives0Btn" onclick="setOnlineLives(0)" style="width: 100%; background: var(--gold); font-size: 0.85rem;">Sudden Death</button>
                     </div>
                     
                     <!-- Move Timer for online -->
@@ -4468,7 +4456,7 @@
         // === GAME SETTINGS ===
         let selectedTime = 0; // Default timeless
         let selectedIncrement = 0; // Default no increment
-        let selectedLives = 0; // Default 0 extra lives (sudden death)
+        let selectedLives = 3; // Default 3 lives (Hearts mode)
 
         function createInitialState() {
             return {
@@ -9433,17 +9421,15 @@
         function setLives(lives) {
             selectedLives = lives;
             
-            // Update button styles (0, 1, 2, 3 are the options)
-            [1, 2, 3].forEach(n => {
-                const btn = document.getElementById(`lives${n}Btn`);
-                btn.style.background = lives === n ? 'var(--gold)' : 'var(--slate)';
-                btn.style.color = lives === n ? '' : 'var(--pearl)';
-            });
-            
-            // Sudden Death button (0 lives)
+            // Update button styles (0 = Sudden Death, 3 = Hearts)
             const sdBtn = document.getElementById('lives0Btn');
+            const heartsBtn = document.getElementById('lives3Btn');
+            
             sdBtn.style.background = lives === 0 ? 'var(--gold)' : 'var(--slate)';
             sdBtn.style.color = lives === 0 ? '' : 'var(--pearl)';
+            
+            heartsBtn.style.background = lives === 3 ? 'var(--gold)' : 'var(--slate)';
+            heartsBtn.style.color = lives === 3 ? '' : 'var(--pearl)';
         }
 
         // Game Mode controls
@@ -11547,23 +11533,22 @@
             document.getElementById('hostLightBtn').style.color = side === 'light' ? '' : 'var(--pearl)';
         }
         
-        let selectedOnlineLives = 0; // Default sudden death for online
+        let selectedOnlineLives = 3; // Default Hearts mode for online
         let selectedMoveTimer = 0; // 0 = no limit, otherwise seconds per move
         const moveTimerValues = [0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60]; // Slider positions
         
         function setOnlineLives(lives) {
             selectedOnlineLives = lives;
             
-            [1, 2, 3].forEach(n => {
-                const btn = document.getElementById(`onlineLives${n}Btn`);
-                btn.style.background = lives === n ? 'var(--gold)' : 'var(--slate)';
-                btn.style.color = lives === n ? '' : 'var(--pearl)';
-            });
-            
-            // Sudden Death button (0 lives)
+            // Update button styles (0 = Sudden Death, 3 = Hearts)
             const sdBtn = document.getElementById('onlineLives0Btn');
+            const heartsBtn = document.getElementById('onlineLives3Btn');
+            
             sdBtn.style.background = lives === 0 ? 'var(--gold)' : 'var(--slate)';
             sdBtn.style.color = lives === 0 ? '' : 'var(--pearl)';
+            
+            heartsBtn.style.background = lives === 3 ? 'var(--gold)' : 'var(--slate)';
+            heartsBtn.style.color = lives === 3 ? '' : 'var(--pearl)';
         }
         
         function updateMoveTimerDisplay() {
