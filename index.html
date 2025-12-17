@@ -3117,14 +3117,14 @@
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 10px; color: var(--silver);">Opponent</label>
                 <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button class="btn" id="humanBtn" onclick="setGameMode('human')" style="flex: 1; background: var(--gold);">Local</button>
+                    <button class="btn" id="humanBtn" onclick="setGameMode('human')" style="flex: 1; background: var(--slate); color: var(--pearl);">Local</button>
                     <button class="btn" id="onlineBtn" onclick="setGameMode('online')" style="flex: 1; background: var(--slate); color: var(--pearl);">Online</button>
-                    <button class="btn" id="cpuBtn" onclick="setGameMode('cpu')" style="flex: 1; background: var(--slate); color: var(--pearl);">CPU</button>
+                    <button class="btn" id="cpuBtn" onclick="setGameMode('cpu')" style="flex: 1; background: var(--gold);">CPU</button>
                 </div>
             </div>
             
             <!-- CPU Side Selection (hidden when vs Human or Spectate) -->
-            <div id="cpuSideSelect" style="margin-bottom: 20px; display: none;">
+            <div id="cpuSideSelect" style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 10px; color: var(--silver);">You Play As</label>
                 <div style="display: flex; gap: 10px; justify-content: center;">
                     <button class="btn" id="playDarkBtn" onclick="setPlayerSide('dark')" style="flex: 1; background: var(--gold);">Dark<br><small style="opacity: 0.7; font-size: 0.75em;">(1st Move)</small></button>
@@ -9433,7 +9433,7 @@
         }
 
         // Game Mode controls
-        let selectedGameMode = 'human'; // 'human', 'cpu', or 'online'
+        let selectedGameMode = 'cpu'; // 'human', 'cpu', or 'online'
         let selectedPlayerSide = 'dark';
         let spectateMode = false;
 
